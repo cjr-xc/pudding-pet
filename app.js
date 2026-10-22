@@ -15,6 +15,7 @@ import { GLTFLoader } from "./vendor/loaders/GLTFLoader.js";
   const speech = el("speech");
   const canvas = el("dogCanvas");
   const fallback = el("webglFallback");
+  const modelStatus = el("modelStatus");
 
   let audioCtx = null;
   let speechTimer = null;
@@ -1412,7 +1413,7 @@ import { GLTFLoader } from "./vendor/loaders/GLTFLoader.js";
   function loadHusky() {
     const loader = new GLTFLoader();
     loader.load(
-      "assets/husky.glb",
+      "assets/husky.glb?v=gltf2",
       (gltf) => {
         gltfModel = gltf.scene;
         dogGroup.children.forEach((child) => {
@@ -1453,6 +1454,9 @@ import { GLTFLoader } from "./vendor/loaders/GLTFLoader.js";
         });
 
         dogGroup.add(gltfModel);
+        dogGroup.visible = true;
+        modelStatus.classList.add("hidden");
+        console.log("pudding-pet: Quaternius Husky glTF loaded");
         gltfMixer = new THREE.AnimationMixer(gltfModel);
         gltf.animations.forEach((clip) => {
           const name = clip.name.replace(/^AnimalArmature\|/, "");
@@ -1475,6 +1479,9 @@ import { GLTFLoader } from "./vendor/loaders/GLTFLoader.js";
       undefined,
       (error) => {
         console.error("Husky GLB failed to load", error);
+        dogGroup.visible = false;
+        modelStatus.textContent = "3D 模型加载失败，请刷新页面重试";
+        modelStatus.classList.remove("hidden");
       }
     );
   }
@@ -1518,10 +1525,13 @@ import { GLTFLoader } from "./vendor/loaders/GLTFLoader.js";
       dogGroup = new THREE.Group();
       dogGroup.position.set(0, 0, 0);
       world.add(dogGroup);
+      dogGroup.visible = false;
       createFurBump();
       buildDog();
       buildCushion();
       buildProps();
+      modelStatus.classList.remove("hidden");
+      modelStatus.textContent = "正在加载 3D 模型…";
       loadHusky();
 
       resizeRenderer();

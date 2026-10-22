@@ -73,6 +73,8 @@
             <div id="webglFallback" class="webgl-fallback hidden">这只小狗需要 WebGL 才能立体起来，换 Chrome 或 Edge 试试。</div>
           </div>
 
+          <div id="modelStatus" class="model-status">正在加载 3D 模型…</div>
+
           <div class="zzz" id="zzz" aria-hidden="true">Z z z</div>
           <div class="particles" id="particles" aria-hidden="true"></div>
           <div class="wilt-overlay" aria-hidden="true"></div>
@@ -83,6 +85,7 @@
           <span id="awayNote">今天也在一起。</span>
         </div>
         <p class="drag-tip">拖动<span id="dragTipName">布丁</span>可以转一圈，点它一下会摸摸头。</p>
+        <p class="model-credit">3D 模型：Quaternius Husky · CC0</p>
       </section>
 
       <aside class="panel">
@@ -201,6 +204,6 @@
       }
     }
   </script>
-  <script type="module" src="app.js"></script>
+  <script type="module" src="app.js?v=gltf2"></script>
 </body>
 </html>
