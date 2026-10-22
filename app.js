@@ -16,6 +16,11 @@ import { GLTFLoader } from "./vendor/loaders/GLTFLoader.js";
   const canvas = el("dogCanvas");
   const fallback = el("webglFallback");
   const modelStatus = el("modelStatus");
+  const voiceBtn = el("voiceBtn");
+  const voiceBtnLabel = el("voiceBtnLabel");
+  const voiceStatus = el("voiceStatus");
+  const voiceForm = el("voiceForm");
+  const voiceInput = el("voiceInput");
 
   let audioCtx = null;
   let speechTimer = null;
@@ -46,6 +51,11 @@ import { GLTFLoader } from "./vendor/loaders/GLTFLoader.js";
   let gltfCurrent = null;
   let usingGLTF = false;
   let idleMode = "stand";
+  let walkState = null;
+  let spinState = null;
+  let recognition = null;
+  let listening = false;
+  let voiceStopTimer = null;
   let lastFrameAt = performance.now();
   let tailGroup = null;
   let tear = null;
@@ -425,6 +435,8 @@ import { GLTFLoader } from "./vendor/loaders/GLTFLoader.js";
 
   function startFetch() {
     if (!fetchBall) return;
+    walkState = null;
+    spinState = null;
     if (fetchBall.parent !== world) world.add(fetchBall);
     fetchBall.scale.setScalar(1);
     fetchBall.visible = true;
@@ -439,6 +451,8 @@ import { GLTFLoader } from "./vendor/loaders/GLTFLoader.js";
   function cancelFetch() {
     if (!fetchState) return;
     fetchState = null;
+    walkState = null;
+    spinState = null;
     if (fetchBall) {
       fetchBall.visible = false;
       if (fetchBall.parent !== world) world.add(fetchBall);
@@ -544,6 +558,177 @@ import { GLTFLoader } from "./vendor/loaders/GLTFLoader.js";
     if (wasWilted) state.mood = clamp(state.mood + 10);
     save();
     render();
+  }
+
+  function voiceStand() {
+    cancelFetch();
+    walkState = null;
+    spinState = null;
+    idleMode = "stand";
+    applyIdleMode();
+    setSpeech("我站起来啦。", 2400);
+  }
+
+  function voiceLie() {
+    cancelFetch();
+    walkState = null;
+    spinState = null;
+    idleMode = "lie";
+    applyIdleMode();
+    setSpeech("我趴下啦。", 2400);
+  }
+
+  function voiceCome() {
+    cancelFetch();
+    spinState = null;
+    walkState = {
+      start: performance.now(),
+      fromX: dogGroup.position.x,
+      fromZ: dogGroup.position.z,
+      toX: 0,
+      toZ: 0.75,
+      duration: 900,
+    };
+    playGltf("Walk", { loop: true, fade: 0.2 });
+    setSpeech("我过来啦。", 2400);
+  }
+
+  function voiceSpin() {
+    cancelFetch();
+    walkState = null;
+    spinState = {
+      start: performance.now(),
+      from: dogGroup.rotation.y,
+      duration: 1200,
+    };
+    playGltf("Walk", { loop: true, fade: 0.2 });
+    spawnParticles("sparkle", 6, 50, 44);
+    setSpeech("转一圈！", 2200);
+  }
+
+  function voiceShake() {
+    cancelFetch();
+    walkState = null;
+    spinState = null;
+    playGltf("Idle_HitReact_Left", { once: true, fade: 0.15 });
+    spawnParticles("heart", 6, 50, 38);
+    soundPet();
+    setSpeech("爪爪给你。", 2400);
+    setTimeout(() => applyIdleMode(), 1100);
+  }
+
+  function voiceJump() {
+    cancelFetch();
+    walkState = null;
+    spinState = null;
+    playGltf("Jump_ToIdle", { once: true, fade: 0.15 });
+    spawnParticles("sparkle", 5, 50, 44);
+    soundPlay();
+    setSpeech("跳！", 2000);
+    setTimeout(() => applyIdleMode(), 1200);
+  }
+
+  function voiceStop() {
+    cancelFetch();
+    walkState = null;
+    spinState = null;
+    applyIdleMode();
+    setSpeech("好，我停下。", 2200);
+  }
+
+  function handleVoiceCommand(raw) {
+    const text = String(raw || "").replace(/[\s，。！？、,.!?]/g, "");
+    if (!text) return;
+    const has = (...words) => words.some((word) => text.includes(word));
+
+    if (has("站起来", "起立", "站立", "站着")) return voiceStand();
+    if (has("趴下", "趴着", "躺下", "休息")) return voiceLie();
+    if (has("过来", "来这里", "靠近")) return voiceCome();
+    if (has("握手", "抬爪", "爪子", "握个手")) return voiceShake();
+    if (has("摸摸", "摸头", "摸一下")) return performAction("pet");
+    if (has("吃饭", "吃东西", "投喂", "吃吧", "饿")) return performAction("feed");
+    if (has("玩球", "扔球", "捡球", "球")) return performAction("play");
+    if (has("睡觉", "睡吧", "晚安")) return performAction("sleep");
+    if (has("转圈", "转一圈", "转个圈")) return voiceSpin();
+    if (has("跳", "跳一下")) return voiceJump();
+    if (has("坐下", "坐好")) {
+      playGltf("Idle_2_HeadLow", { loop: true, fade: 0.3 });
+      setSpeech("我坐好啦。", 2400);
+      return;
+    }
+    if (has("停下", "别动", "停")) return voiceStop();
+    if (has("你好", "在吗", "嗨")) {
+      setSpeech("我在呢，想让我做什么？", 2600);
+      return;
+    }
+    setSpeech("我没听懂，可以说：站起来、趴下、过来、握手、吃饭、玩球、睡觉、转圈。", 3600);
+  }
+
+  function setupVoice() {
+    if (!voiceBtn) return;
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      voiceBtn.disabled = true;
+      voiceBtnLabel.textContent = "不支持";
+      voiceStatus.textContent = "当前浏览器不支持语音识别，请用 Chrome 或 Edge。";
+      return;
+    }
+
+    recognition = new SpeechRecognition();
+    recognition.lang = "zh-CN";
+    recognition.interimResults = false;
+    recognition.continuous = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = () => {
+      listening = true;
+      voiceBtn.classList.add("is-listening");
+      voiceBtn.setAttribute("aria-pressed", "true");
+      voiceBtnLabel.textContent = "正在听…";
+      voiceStatus.textContent = "我在听，请说指令…";
+      clearTimeout(voiceStopTimer);
+      voiceStopTimer = setTimeout(() => {
+        if (listening) recognition.stop();
+      }, 8000);
+    };
+
+    recognition.onresult = (event) => {
+      const text = event.results[0][0].transcript.trim();
+      voiceStatus.textContent = `听到：${text}`;
+      handleVoiceCommand(text);
+    };
+
+    recognition.onerror = (event) => {
+      let message = "没听清，再说一次。";
+      if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+        message = "需要麦克风权限，请在浏览器地址栏允许后重试。";
+      } else if (event.error === "audio-capture") {
+        message = "没有找到麦克风。";
+      } else if (event.error === "no-speech") {
+        message = "没有听到声音，再试一次。";
+      }
+      voiceStatus.textContent = message;
+    };
+
+    recognition.onend = () => {
+      listening = false;
+      voiceBtn.classList.remove("is-listening");
+      voiceBtn.setAttribute("aria-pressed", "false");
+      voiceBtnLabel.textContent = "开始听";
+      clearTimeout(voiceStopTimer);
+    };
+
+    voiceBtn.addEventListener("click", () => {
+      if (listening) {
+        recognition.stop();
+        return;
+      }
+      try {
+        recognition.start();
+      } catch (error) {
+        voiceStatus.textContent = "语音识别启动失败，请稍后再试。";
+      }
+    });
   }
 
   function toggleSound() {
@@ -939,7 +1124,7 @@ import { GLTFLoader } from "./vendor/loaders/GLTFLoader.js";
     floor.receiveShadow = true;
     world.add(floor);
 
-    const pillow = addSphere(world, 0.55, 0xfffaf2, [-0.95, 0.2, -0.9], [1.7, 0.38, 1.05]);
+    const pillow = addSphere(world, 0.55, 0xfffaf2, [-1.2, 0.2, -1.1], [1.7, 0.38, 1.05]);
     pillow.castShadow = true;
 
     const seam = new THREE.Mesh(
@@ -947,7 +1132,7 @@ import { GLTFLoader } from "./vendor/loaders/GLTFLoader.js";
       material(0xe8dccb)
     );
     seam.rotation.x = Math.PI / 2;
-    seam.position.set(-0.95, 0.38, -0.9);
+    seam.position.set(-1.2, 0.38, -1.1);
     seam.scale.z = 0.62;
     world.add(seam);
   }
@@ -980,7 +1165,7 @@ import { GLTFLoader } from "./vendor/loaders/GLTFLoader.js";
     ].forEach(([x, y, z]) => addSphere(bowlGroup, 0.05, 0xe7b779, [x, y, z]));
 
     toyGroup = new THREE.Group();
-    toyGroup.position.set(1.05, 0.16, 1.25);
+    toyGroup.position.set(0.55, 0.16, 1.7);
     world.add(toyGroup);
     addSphere(toyGroup, 0.16, BLUE, [0, 0, 0], [1.1, 0.9, 1]);
     addSphere(toyGroup, 0.1, 0xfff6ea, [0, -0.02, 0.12], [1, 0.8, 0.45]);
@@ -1047,8 +1232,7 @@ import { GLTFLoader } from "./vendor/loaders/GLTFLoader.js";
     const frameNow = performance.now();
     const t = (frameNow - startedAt) / 1000;
     const delta = Math.min(0.05, (frameNow - lastFrameAt) / 1000);
-    lastFrameAt = frameNow;
-    const wilted = room.classList.contains("is-wilted");
+    lastFrameAt = frameNow;    const wilted = room.classList.contains("is-wilted");
     const petting = room.classList.contains("is-petting");
     const eating = room.classList.contains("is-eating");
     const playing = room.classList.contains("is-playing");
@@ -1057,9 +1241,30 @@ import { GLTFLoader } from "./vendor/loaders/GLTFLoader.js";
     const happy = petting || sleeping;
     const fetching = Boolean(fetchState);
 
-    dogGroup.position.y = Math.sin(t * 2.1) * 0.007;
+    const baseLift = idleMode === "lie" ? 0.045 : 0;
+    dogGroup.position.y = baseLift + Math.sin(t * 2.1) * 0.007;
     const idleTurn = Math.sin(t * 0.35) * 0.03;
-    dogGroup.rotation.y += (targetRotation + idleTurn - dogGroup.rotation.y) * 0.06;
+    if (walkState) {
+      const p = Math.min(1, (frameNow - walkState.start) / walkState.duration);
+      const eased = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+      dogGroup.position.x = THREE.MathUtils.lerp(walkState.fromX, walkState.toX, eased);
+      dogGroup.position.z = THREE.MathUtils.lerp(walkState.fromZ, walkState.toZ, eased);
+      dogGroup.rotation.y += (0 - dogGroup.rotation.y) * 0.15;
+      if (p >= 1) {
+        walkState = null;
+        applyIdleMode();
+      }
+    } else if (spinState) {
+      const p = Math.min(1, (frameNow - spinState.start) / spinState.duration);
+      dogGroup.rotation.y = spinState.from + p * Math.PI * 2;
+      if (p >= 1) {
+        spinState = null;
+        dogGroup.rotation.y = 0;
+        applyIdleMode();
+      }
+    } else {
+      dogGroup.rotation.y += (targetRotation + idleTurn - dogGroup.rotation.y) * 0.06;
+    }
 
     let headY = 0.52;
     let headZ = 0.58;
@@ -1195,7 +1400,7 @@ import { GLTFLoader } from "./vendor/loaders/GLTFLoader.js";
     bowlGroup.visible = eating;
     if (eating) bowlGroup.position.y = 0.14 + Math.sin(t * 10) * 0.006;
 
-    toyGroup.visible = true;
+    toyGroup.visible = !eating;
     if (playing && !fetching) {
       toyGroup.rotation.z = Math.sin(t * 14) * 0.28;
       toyGroup.position.y = 0.16 + Math.abs(Math.sin(t * 11)) * 0.1;
@@ -1261,7 +1466,7 @@ import { GLTFLoader } from "./vendor/loaders/GLTFLoader.js";
         headGroup.rotation.x += (0.4 - headGroup.rotation.x) * 0.25;
         if (usingGLTF) {
           if (fetchBall.parent !== world) world.add(fetchBall);
-          const mouthOffset = new THREE.Vector3(0, 0.55, 0.72).applyAxisAngle(
+          const mouthOffset = new THREE.Vector3(0, 0.5, 0.82).applyAxisAngle(
             new THREE.Vector3(0, 1, 0),
             dogGroup.rotation.y
           );
@@ -1286,7 +1491,7 @@ import { GLTFLoader } from "./vendor/loaders/GLTFLoader.js";
         headGroup.position.y += (0.7 - headGroup.position.y) * 0.15;
         if (usingGLTF) {
           if (fetchBall.parent !== world) world.add(fetchBall);
-          const mouthOffset = new THREE.Vector3(0, 0.55, 0.72).applyAxisAngle(
+          const mouthOffset = new THREE.Vector3(0, 0.5, 0.82).applyAxisAngle(
             new THREE.Vector3(0, 1, 0),
             dogGroup.rotation.y
           );
@@ -1404,6 +1609,44 @@ import { GLTFLoader } from "./vendor/loaders/GLTFLoader.js";
     }
   }
 
+  function addGltfFur(model, scale) {
+    const inv = 1 / (scale || 1);
+    const neck =
+      model.getObjectByName("Neck2") ||
+      model.getObjectByName("Neck1") ||
+      model.getObjectByName("Neck3");
+    if (neck) {
+      for (let i = 0; i < 18; i += 1) {
+        const angle = (i / 18) * Math.PI * 2;
+        const tuft = new THREE.Mesh(
+          new THREE.ConeGeometry(0.11 * inv, 0.42 * inv, 5),
+          material(i % 4 === 0 ? BROWN : WHITE)
+        );
+        tuft.position.set(
+          Math.cos(angle) * 0.72 * inv,
+          Math.sin(angle) * 0.18 * inv,
+          0.18 * inv + Math.sin(angle) * 0.42 * inv
+        );
+        tuft.rotation.z = -angle;
+        tuft.rotation.x = 0.35;
+        tuft.castShadow = true;
+        neck.add(tuft);
+      }
+    }
+
+    ["Tail1", "Tail2", "Tail3", "Tail4", "Tail5", "Tail6"].forEach((name, index) => {
+      const bone = model.getObjectByName(name);
+      if (!bone) return;
+      const ball = addSphere(
+        bone,
+        (0.16 + index * 0.02) * inv,
+        index % 2 === 0 ? BROWN : WHITE,
+        [0, 0, 0]
+      );
+      ball.castShadow = true;
+    });
+  }
+
   function loadHusky() {
     const loader = new GLTFLoader();
     loader.load(
@@ -1447,6 +1690,8 @@ import { GLTFLoader } from "./vendor/loaders/GLTFLoader.js";
             mat.needsUpdate = true;
           });
         });
+
+        addGltfFur(gltfModel, scale);
 
         dogGroup.add(gltfModel);
         dogGroup.visible = true;
@@ -1590,6 +1835,17 @@ import { GLTFLoader } from "./vendor/loaders/GLTFLoader.js";
     el("soundBtn").addEventListener("click", toggleSound);
     el("resetBtn").addEventListener("click", resetPet);
 
+    if (voiceForm) {
+      voiceForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const text = voiceInput.value.trim();
+        if (!text) return;
+        voiceStatus.textContent = `指令：${text}`;
+        handleVoiceCommand(text);
+        voiceInput.value = "";
+      });
+    }
+
     const petName = el("petName");
     petName.addEventListener("click", () => {
       if (petName.isContentEditable) return;
@@ -1646,6 +1902,7 @@ import { GLTFLoader } from "./vendor/loaders/GLTFLoader.js";
   applyOfflineDecay();
   renderDateAndTime();
   bindEvents();
+  setupVoice();
   render();
   applyName(state.name, false);
   if (initThree()) bindThreeEvents();

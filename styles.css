@@ -886,6 +886,7 @@ body {
 
 .status-card,
 .actions-card,
+.voice-card,
 .note-card {
   border: 2.5px solid var(--ink);
   border-radius: 24px;
@@ -894,7 +895,8 @@ body {
 }
 
 .status-card,
-.actions-card {
+.actions-card,
+.voice-card {
   padding: 18px;
 }
 
@@ -1088,6 +1090,104 @@ body {
   border-style: dashed;
   border-color: rgba(91, 70, 60, 0.4);
   background: #fff9e9;
+}
+
+/* ---------- voice ---------- */
+
+.voice-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.voice-head h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.voice-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 12px;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: var(--rose-soft);
+  color: var(--ink);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: transform 150ms ease, background 150ms ease;
+}
+
+.voice-btn svg {
+  display: block;
+  width: 17px;
+  height: 17px;
+}
+
+.voice-btn:hover {
+  transform: translateY(-1px);
+}
+
+.voice-btn.is-listening {
+  background: var(--rose);
+  color: #fff;
+  animation: voice-pulse 1.1s ease-in-out infinite;
+}
+
+.voice-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.voice-status {
+  min-height: 2.6em;
+  margin: 11px 0 0;
+  color: var(--ink-soft);
+  font-size: 11.5px;
+  line-height: 1.6;
+}
+
+.voice-form {
+  display: flex;
+  gap: 8px;
+  margin-top: 9px;
+}
+
+.voice-form input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1.5px solid var(--line-strong);
+  border-radius: 8px;
+  outline: none;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 12px;
+}
+
+.voice-form input:focus {
+  border-color: var(--rose);
+}
+
+.voice-form button {
+  padding: 8px 12px;
+  border: 2px solid var(--ink);
+  border-radius: 8px;
+  background: var(--butter);
+  color: var(--ink);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+@keyframes voice-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(232, 143, 160, 0.42); }
+  50% { box-shadow: 0 0 0 7px rgba(232, 143, 160, 0); }
 }
 
 .tape {
@@ -1338,6 +1438,10 @@ button:focus:not(:focus-visible) {
     grid-column: 1 / 3;
   }
 
+  .voice-card {
+    grid-column: 1 / 3;
+  }
+
   .reset-btn {
     grid-column: 1 / 3;
   }
@@ -1453,6 +1557,7 @@ button:focus:not(:focus-visible) {
   }
 
   .note-card,
+  .voice-card,
   .reset-btn {
     grid-column: auto;
   }
