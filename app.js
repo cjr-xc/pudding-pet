@@ -49,6 +49,8 @@ import { GLTFLoader } from "./vendor/loaders/GLTFLoader.js";
   let gltfMixer = null;
   let gltfActions = {};
   let gltfCurrent = null;
+  let headBone = null;
+  let lyingTailBase = null;
   let usingGLTF = false;
   let idleMode = "stand";
   let walkState = null;
@@ -440,10 +442,12 @@ import { GLTFLoader } from "./vendor/loaders/GLTFLoader.js";
     if (fetchBall.parent !== world) world.add(fetchBall);
     fetchBall.scale.setScalar(1);
     fetchBall.visible = true;
-    fetchBall.position.set(0.4, 0.55, 1.2);
+    const mouth = getMouthWorld(new THREE.Vector3());
+    const start = mouth || new THREE.Vector3(0.4, 0.55, 1.2);
+    fetchBall.position.copy(start);
     fetchState = {
       startTime: performance.now(),
-      start: new THREE.Vector3(0.4, 0.55, 1.2),
+      start: start.clone(),
       target: new THREE.Vector3(1.9, 0.14, -0.6),
     };
   }
@@ -492,6 +496,8 @@ import { GLTFLoader } from "./vendor/loaders/GLTFLoader.js";
         spawnParticles("crumb", 8, 50, 72);
         soundFeed();
         if (usingGLTF) {
+          const mouth = getMouthWorld(new THREE.Vector3());
+          if (mouth) bowlGroup.position.set(mouth.x + 0.2, 0.14, mouth.z + 0.4);
           playGltf("Eating", { once: true, fade: 0.25 });
           setTimeout(() => {
             if (usingGLTF) applyIdleMode();
@@ -1466,11 +1472,12 @@ import { GLTFLoader } from "./vendor/loaders/GLTFLoader.js";
         headGroup.rotation.x += (0.4 - headGroup.rotation.x) * 0.25;
         if (usingGLTF) {
           if (fetchBall.parent !== world) world.add(fetchBall);
-          const mouthOffset = new THREE.Vector3(0, 0.5, 0.82).applyAxisAngle(
-            new THREE.Vector3(0, 1, 0),
-            dogGroup.rotation.y
-          );
-          fetchBall.position.copy(dogGroup.position).add(mouthOffset);
+          const mouth = getMouthWorld(new THREE.Vector3());
+          if (mouth) {
+            mouth.y -= 0.03;
+            mouth.z += 0.04;
+            fetchBall.position.copy(mouth);
+          }
           fetchBall.scale.setScalar(0.8);
         } else if (fetchBall.parent !== headGroup) {
           headGroup.add(fetchBall);
@@ -1491,11 +1498,12 @@ import { GLTFLoader } from "./vendor/loaders/GLTFLoader.js";
         headGroup.position.y += (0.7 - headGroup.position.y) * 0.15;
         if (usingGLTF) {
           if (fetchBall.parent !== world) world.add(fetchBall);
-          const mouthOffset = new THREE.Vector3(0, 0.5, 0.82).applyAxisAngle(
-            new THREE.Vector3(0, 1, 0),
-            dogGroup.rotation.y
-          );
-          fetchBall.position.copy(dogGroup.position).add(mouthOffset);
+          const mouth = getMouthWorld(new THREE.Vector3());
+          if (mouth) {
+            mouth.y -= 0.03;
+            mouth.z += 0.04;
+            fetchBall.position.copy(mouth);
+          }
           fetchBall.scale.setScalar(0.8);
           fetchBall.visible = true;
         }
@@ -1534,7 +1542,20 @@ import { GLTFLoader } from "./vendor/loaders/GLTFLoader.js";
     dogGroup.scale.y += (targetScale - dogGroup.scale.y) * 0.2;
     dogGroup.scale.z += (targetScale - dogGroup.scale.z) * 0.2;
 
+    const lyingView = idleMode === "lie" && !fetchState && !walkState && !spinState;
+    const narrowCam = camera.aspect < 0.95;
+    const camTarget = new THREE.Vector3(
+      0,
+      lyingView ? (narrowCam ? 1.35 : 1.2) : (narrowCam ? 2.1 : 1.85),
+      lyingView ? (narrowCam ? 5.2 : 4.5) : (narrowCam ? 6.5 : 5.4)
+    );
+    camera.position.lerp(camTarget, 0.06);
+    camera.lookAt(
+      lyingView ? new THREE.Vector3(0, 0.45, 0.2) : new THREE.Vector3(0, 0.8, 0.1)
+    );
+
     if (gltfMixer) gltfMixer.update(delta);
+    if (idleMode === "lie") fixLyingTail();
 
     renderer.render(world, camera);
   }
@@ -1589,16 +1610,53 @@ import { GLTFLoader } from "./vendor/loaders/GLTFLoader.js";
       gltfCurrent = next;
       return;
     }
-    if (previous && previous !== next) {
+    if (previous && previous !== next && previous.enabled) {
       next.crossFadeFrom(previous, options.fade ?? 0.25, false);
     }
     gltfCurrent = next;
   }
 
+  function getMouthWorld(target = new THREE.Vector3()) {
+    if (!headBone || !gltfModel) return null;
+    gltfModel.updateMatrixWorld(true);
+    headBone.getWorldPosition(target);
+    return target;
+  }
+
+  function captureLyingTail() {
+    if (!gltfModel) return;
+    lyingTailBase = ["Tail1", "Tail2", "Tail3", "Tail4", "Tail5", "Tail6"].map((name) => {
+      const bone = gltfModel.getObjectByName(name);
+      return bone ? bone.quaternion.clone() : null;
+    });
+  }
+
+  function fixLyingTail() {
+    if (!gltfModel || !lyingTailBase) return;
+    ["Tail1", "Tail2", "Tail3", "Tail4", "Tail5", "Tail6"].forEach((name, index) => {
+      const bone = gltfModel.getObjectByName(name);
+      const base = lyingTailBase[index];
+      if (!bone || !base) return;
+      bone.quaternion.copy(base);
+      bone.rotateZ(0.22 + index * 0.04);
+      bone.rotateY(0.08);
+    });
+  }
+
+  function renderNow() {
+    if (dogGroup) dogGroup.position.y = (idleMode === "lie" ? 0.045 : 0) + 0.006;
+    if (gltfMixer) gltfMixer.update(0.001);
+    if (idleMode === "lie") fixLyingTail();
+    if (renderer) renderer.render(world, camera);
+  }
+
   function applyIdleMode() {
     if (!usingGLTF) return;
     if (idleMode === "lie") {
-      playGltf("Death", { once: true, fade: 0.3 });
+      playGltf("Death", { once: true, holdAtEnd: true, fade: 0.2 });
+      captureLyingTail();
+      fixLyingTail();
+      renderNow();
       return;
     }
     const mood = getMood().key;
@@ -1607,6 +1665,7 @@ import { GLTFLoader } from "./vendor/loaders/GLTFLoader.js";
     } else {
       playGltf("Idle_2", { loop: true, fade: 0.3 });
     }
+    renderNow();
   }
 
   function addGltfFur(model, scale) {
@@ -1633,18 +1692,6 @@ import { GLTFLoader } from "./vendor/loaders/GLTFLoader.js";
         neck.add(tuft);
       }
     }
-
-    ["Tail1", "Tail2", "Tail3", "Tail4", "Tail5", "Tail6"].forEach((name, index) => {
-      const bone = model.getObjectByName(name);
-      if (!bone) return;
-      const ball = addSphere(
-        bone,
-        (0.16 + index * 0.02) * inv,
-        index % 2 === 0 ? BROWN : WHITE,
-        [0, 0, 0]
-      );
-      ball.castShadow = true;
-    });
   }
 
   function loadHusky() {
@@ -1653,6 +1700,7 @@ import { GLTFLoader } from "./vendor/loaders/GLTFLoader.js";
       "assets/husky.glb?v=gltf2",
       (gltf) => {
         gltfModel = gltf.scene;
+        headBone = gltfModel.getObjectByName("Head_end") || gltfModel.getObjectByName("Head");
         dogGroup.children.forEach((child) => {
           child.visible = false;
         });
@@ -1677,8 +1725,8 @@ import { GLTFLoader } from "./vendor/loaders/GLTFLoader.js";
             if (!mat || !mat.color) return;
             const c = mat.color;
             const lum = c.r * 0.299 + c.g * 0.587 + c.b * 0.114;
-            if (lum > 0.5) mat.color.setHex(0xf2e4d2);
-            else if (lum > 0.15) mat.color.setHex(WHITE);
+            if (lum > 0.5) mat.color.setHex(0xfbf7ef);
+            else if (lum > 0.15) mat.color.setHex(0xf2e6d4);
             else if (lum > 0.04) mat.color.setHex(BROWN);
             else mat.color.setHex(NOSE);
             mat.roughness = 0.9;
