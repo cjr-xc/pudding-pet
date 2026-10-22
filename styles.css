@@ -204,6 +204,15 @@ body {
   transition: filter 500ms ease, background 700ms ease;
 }
 
+.scene::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 50% 45%, transparent 52%, rgba(70, 45, 30, 0.14) 100%);
+}
+
 .window {
   position: absolute;
   top: 30px;

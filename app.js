@@ -45,6 +45,7 @@ import { GLTFLoader } from "./vendor/loaders/GLTFLoader.js";
   let gltfActions = {};
   let gltfCurrent = null;
   let usingGLTF = false;
+  let idleMode = "stand";
   let lastFrameAt = performance.now();
   let tailGroup = null;
   let tear = null;
@@ -107,7 +108,6 @@ import { GLTFLoader } from "./vendor/loaders/GLTFLoader.js";
       countsDate: localDateKey(),
       sound: true,
       createdAt: now,
-      prefersLying: false,
     };
   }
 
@@ -230,27 +230,6 @@ import { GLTFLoader } from "./vendor/loaders/GLTFLoader.js";
     if (wasWilted && mood.className !== "is-wilted") {
       room.classList.add("is-reviving");
       setTimeout(() => room.classList.remove("is-reviving"), 760);
-    }
-
-    if (
-      usingGLTF &&
-      !fetchState &&
-      !room.classList.contains("is-petting") &&
-      !room.classList.contains("is-eating") &&
-      !room.classList.contains("is-sleeping") &&
-      !room.classList.contains("is-playing")
-    ) {
-      if (state.prefersLying) {
-        if (mood.key === "wilted" || mood.key === "low") {
-          playGltf("Idle_2_HeadLow", { loop: true, fade: 0.4 });
-        } else {
-          playGltf("Death", { once: true, fade: 0.3 });
-        }
-      } else if (mood.key === "wilted" || mood.key === "low") {
-        playGltf("Idle_2_HeadLow", { loop: true, fade: 0.3 });
-      } else {
-        playGltf("Idle", { loop: true, fade: 0.3 });
-      }
     }
   }
 
@@ -472,7 +451,7 @@ import { GLTFLoader } from "./vendor/loaders/GLTFLoader.js";
     }
   }
 
-  function performAction(action) {
+  function performAction(action, options = {}) {
     const now = Date.now();
     if (now - lastActionAt < 180) return;
     lastActionAt = now;
@@ -501,11 +480,14 @@ import { GLTFLoader } from "./vendor/loaders/GLTFLoader.js";
         if (usingGLTF) {
           playGltf("Eating", { once: true, fade: 0.25 });
           setTimeout(() => {
-            if (usingGLTF) playGltf("Death", { once: true, fade: 0.4 });
+            if (usingGLTF) applyIdleMode();
           }, 2300);
         }
       }
     } else if (action === "pet") {
+      if (options.toggleIdle) {
+        idleMode = idleMode === "stand" ? "lie" : "stand";
+      }
       const before = state.mood;
       state.mood = clamp(state.mood + 22);
       state.energy = clamp(state.energy + 4);
@@ -522,7 +504,7 @@ import { GLTFLoader } from "./vendor/loaders/GLTFLoader.js";
       if (usingGLTF) {
         playGltf("Idle_HitReact_Left", { once: true, fade: 0.15 });
         setTimeout(() => {
-          if (usingGLTF) playGltf("Death", { once: true, fade: 0.3 });
+          if (usingGLTF) applyIdleMode();
         }, 900);
       }
     } else if (action === "play") {
@@ -538,7 +520,7 @@ import { GLTFLoader } from "./vendor/loaders/GLTFLoader.js";
         setActionClass("is-playing", 6400 * SLOW_FETCH);
         spawnParticles("sparkle", 7, 50, 44);
         soundPlay();
-        if (usingGLTF) playGltf("Idle", { loop: true, fade: 0.2 });
+        if (usingGLTF) playGltf("Idle_2", { loop: true, fade: 0.2 });
       }
     } else if (action === "sleep") {
       if (state.energy >= 85) {
@@ -550,13 +532,15 @@ import { GLTFLoader } from "./vendor/loaders/GLTFLoader.js";
         setSpeech("呼…睡一小会儿。", 2600);
         setActionClass("is-sleeping", 3000);
         soundSleep();
-        if (usingGLTF) playGltf("Death", { once: true, fade: 0.3 });
+        if (usingGLTF) {
+          playGltf("Death", { once: true, fade: 0.3 });
+          setTimeout(() => applyIdleMode(), 3000);
+        }
       }
     }
 
     state.lastInteraction = now;
     state.lastSeen = now;
-    state.prefersLying = true;
     if (wasWilted) state.mood = clamp(state.mood + 10);
     save();
     render();
@@ -586,7 +570,7 @@ import { GLTFLoader } from "./vendor/loaders/GLTFLoader.js";
     save();
     applyName(name, false);
     render();
-    if (usingGLTF) playGltf("Idle", { loop: true, fade: 0.3 });
+    if (usingGLTF) applyIdleMode();
     setSpeech(`你好呀，我是${name}。以后请多关照。`, 5200);
     toast("重新开始啦");
   }
@@ -1036,7 +1020,7 @@ import { GLTFLoader } from "./vendor/loaders/GLTFLoader.js";
     renderer.setSize(width, height, false);
     camera.aspect = width / height;
     const narrow = width / height < 0.95;
-    camera.position.set(0, narrow ? 2.2 : 1.95, narrow ? 7.0 : 5.8);
+    camera.position.set(0, narrow ? 2.1 : 1.85, narrow ? 6.5 : 5.4);
     camera.lookAt(0, 0.8, 0.1);
     camera.updateProjectionMatrix();
   }
@@ -1239,11 +1223,7 @@ import { GLTFLoader } from "./vendor/loaders/GLTFLoader.js";
           playGltf("Walk", { loop: true, fade: 0.2 });
         } else if (elapsed >= 5.6 && fetchState.phase !== "end") {
           fetchState.phase = "end";
-          playGltf(state.prefersLying ? "Death" : "Idle", {
-            once: state.prefersLying,
-            loop: !state.prefersLying,
-            fade: 0.3,
-          });
+          applyIdleMode();
         }
       }
 
@@ -1410,6 +1390,20 @@ import { GLTFLoader } from "./vendor/loaders/GLTFLoader.js";
     gltfCurrent = next;
   }
 
+  function applyIdleMode() {
+    if (!usingGLTF) return;
+    if (idleMode === "lie") {
+      playGltf("Death", { once: true, fade: 0.3 });
+      return;
+    }
+    const mood = getMood().key;
+    if (mood === "wilted" || mood === "low") {
+      playGltf("Idle_2_HeadLow", { loop: true, fade: 0.3 });
+    } else {
+      playGltf("Idle_2", { loop: true, fade: 0.3 });
+    }
+  }
+
   function loadHusky() {
     const loader = new GLTFLoader();
     loader.load(
@@ -1440,7 +1434,8 @@ import { GLTFLoader } from "./vendor/loaders/GLTFLoader.js";
             if (!mat || !mat.color) return;
             const c = mat.color;
             const lum = c.r * 0.299 + c.g * 0.587 + c.b * 0.114;
-            if (lum > 0.15) mat.color.setHex(WHITE);
+            if (lum > 0.5) mat.color.setHex(0xf2e4d2);
+            else if (lum > 0.15) mat.color.setHex(WHITE);
             else if (lum > 0.04) mat.color.setHex(BROWN);
             else mat.color.setHex(NOSE);
             mat.roughness = 0.9;
@@ -1463,18 +1458,8 @@ import { GLTFLoader } from "./vendor/loaders/GLTFLoader.js";
           if (!gltfActions[name]) gltfActions[name] = gltfMixer.clipAction(clip);
         });
         usingGLTF = true;
-        const moodKey = getMood().key;
-        const initial = state.prefersLying
-          ? "Death"
-          : moodKey === "wilted" || moodKey === "low"
-            ? "Idle_2_HeadLow"
-            : "Idle";
-        playGltf(
-          initial,
-          initial === "Death"
-            ? { once: true, holdAtEnd: true, fade: 0 }
-            : { loop: true, fade: 0.2 }
-        );
+        idleMode = "stand";
+        applyIdleMode();
       },
       undefined,
       (error) => {
@@ -1499,7 +1484,7 @@ import { GLTFLoader } from "./vendor/loaders/GLTFLoader.js";
 
       world = new THREE.Scene();
       camera = new THREE.PerspectiveCamera(32, 1, 0.1, 100);
-      camera.position.set(0, 1.95, 5.8);
+      camera.position.set(0, 1.85, 5.4);
       camera.lookAt(0, 0.8, 0.1);
 
       world.add(new THREE.HemisphereLight(0xfff6e8, 0xbfa58f, 1.55));
@@ -1518,9 +1503,12 @@ import { GLTFLoader } from "./vendor/loaders/GLTFLoader.js";
       const fill = new THREE.DirectionalLight(0xdfe8ff, 0.7);
       fill.position.set(-5, 3, 4);
       world.add(fill);
-      const rim = new THREE.DirectionalLight(0xffdcc2, 1.15);
+      const rim = new THREE.DirectionalLight(0xffdcc2, 1.6);
       rim.position.set(-3, 4, -5);
       world.add(rim);
+      const glow = new THREE.PointLight(0xffe3c4, 0.9, 9);
+      glow.position.set(0, 2.8, 3.2);
+      world.add(glow);
 
       dogGroup = new THREE.Group();
       dogGroup.position.set(0, 0, 0);
@@ -1584,7 +1572,7 @@ import { GLTFLoader } from "./vendor/loaders/GLTFLoader.js";
       }
       if (wasClick) {
         if (hitToy(event)) performAction("play");
-        else if (hitDog(event)) performAction("pet");
+        else if (hitDog(event)) performAction("pet", { toggleIdle: true });
       }
     });
 
