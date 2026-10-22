@@ -7,6 +7,7 @@ import * as THREE from "./vendor/three.module.js";
   const HOUR = 60 * 60 * 1000;
   const DAY = 24 * HOUR;
   const ACTION_CLASSES = ["is-eating", "is-petting", "is-playing", "is-sleeping"];
+  const SLOW_FETCH = new URLSearchParams(location.search).has("slowfetch") ? 4 : 1;
 
   const el = (id) => document.getElementById(id);
   const room = el("scene");
@@ -34,6 +35,9 @@ import * as THREE from "./vendor/three.module.js";
   let rightLeg = null;
   let cookie = null;
   let toyGroup = null;
+  let fetchBall = null;
+  let fetchState = null;
+  let furBump = null;
   let tailGroup = null;
   let tear = null;
   let smile = null;
@@ -410,6 +414,34 @@ import * as THREE from "./vendor/three.module.js";
     }
   }
 
+  function startFetch() {
+    if (!fetchBall) return;
+    if (fetchBall.parent !== world) world.add(fetchBall);
+    fetchBall.scale.setScalar(1);
+    fetchBall.visible = true;
+    fetchBall.position.set(0.4, 0.55, 1.2);
+    fetchState = {
+      startTime: performance.now(),
+      start: new THREE.Vector3(0.4, 0.55, 1.2),
+      target: new THREE.Vector3(1.9, 0.14, -0.6),
+    };
+  }
+
+  function cancelFetch() {
+    if (!fetchState) return;
+    fetchState = null;
+    if (fetchBall) {
+      fetchBall.visible = false;
+      if (fetchBall.parent !== world) world.add(fetchBall);
+      fetchBall.scale.setScalar(1);
+    }
+    if (dogGroup) {
+      dogGroup.position.x = 0;
+      dogGroup.position.z = 0;
+      dogGroup.rotation.y = 0;
+    }
+  }
+
   function performAction(action) {
     const now = Date.now();
     if (now - lastActionAt < 180) return;
@@ -418,6 +450,7 @@ import * as THREE from "./vendor/three.module.js";
     resetCountsIfNeeded();
     const wasWilted = room.classList.contains("is-wilted");
     currentAwayMs = 0;
+    if (action !== "play") cancelFetch();
 
     if (action === "feed") {
       if (state.fullness >= 96) {
@@ -458,8 +491,9 @@ import * as THREE from "./vendor/three.module.js";
         state.energy = clamp(state.energy - 8);
         state.fullness = clamp(state.fullness - 5);
         state.counts.play += 1;
-        setSpeech(pick(["再扔一次！这次我一定接住。", "小球小球，飞起来啦！", "你扔得真好，再来一次。"]), 3200);
-        setActionClass("is-playing", 1400);
+        setSpeech("球飞出去啦，我去捡！", 3000);
+        startFetch();
+        setActionClass("is-playing", 6400 * SLOW_FETCH);
         spawnParticles("sparkle", 7, 50, 44);
         soundPlay();
       }
@@ -536,12 +570,17 @@ import * as THREE from "./vendor/three.module.js";
   /* ---------- Three.js ---------- */
 
   function material(color, options = {}) {
-    return new THREE.MeshStandardMaterial({
+    const params = {
       color,
-      roughness: 0.88,
+      roughness: 0.95,
       metalness: 0,
       ...options,
-    });
+    };
+    if (furBump) {
+      params.bumpMap = furBump;
+      params.bumpScale = 0.012;
+    }
+    return new THREE.MeshStandardMaterial(params);
   }
 
   function addSphere(parent, radius, color, position, scale = [1, 1, 1], options = {}) {
@@ -560,6 +599,24 @@ import * as THREE from "./vendor/three.module.js";
     addSphere(dogGroup, 0.66, BROWN, [-0.15, 0.56, -0.24], [1.22, 0.55, 0.92]);
     addSphere(dogGroup, 0.45, WHITE, [0.12, 0.32, 0.38], [0.95, 0.7, 0.62]);
 
+    // 身体边缘的毛簇，让轮廓不像光滑的塑料球
+    for (let i = 0; i < 34; i += 1) {
+      const angle = (i / 34) * Math.PI * 2;
+      const tuft = new THREE.Mesh(
+        new THREE.ConeGeometry(0.07 + Math.random() * 0.04, 0.24 + Math.random() * 0.12, 5),
+        material(i % 4 === 0 ? BROWN : WHITE)
+      );
+      tuft.position.set(
+        -0.12 + Math.cos(angle) * 0.97,
+        0.55 + Math.sin(angle) * 0.07,
+        -0.18 + Math.sin(angle) * 0.68
+      );
+      tuft.rotation.z = -Math.cos(angle) * 0.9;
+      tuft.rotation.x = -Math.sin(angle) * 0.5;
+      tuft.castShadow = true;
+      dogGroup.add(tuft);
+    }
+
     // 头
     headGroup = new THREE.Group();
     headGroup.position.set(0.38, 0.52, 0.58);
@@ -576,23 +633,23 @@ import * as THREE from "./vendor/three.module.js";
 
     // 棕色眉斑（不是整圈眼罩）
     [-1, 1].forEach((side) => {
-      addSphere(headGroup, 0.17, BROWN, [side * 0.24, 0.17, 0.34], [0.7, 0.45, 0.3]);
+      addSphere(headGroup, 0.15, BROWN, [side * 0.24, 0.17, 0.34], [0.65, 0.4, 0.28]);
     });
 
     // 眼睛 + 闭眼弧线
     [-1, 1].forEach((side) => {
       const eye = new THREE.Group();
-      eye.position.set(side * 0.22, 0.1, 0.47);
-      addSphere(eye, 0.065, NOSE, [0, 0, 0]);
-      addSphere(eye, 0.022, WHITE, [-0.018, 0.022, 0.055], [1, 1, 0.5]);
+      eye.position.set(side * 0.21, 0.1, 0.47);
+      addSphere(eye, 0.055, NOSE, [0, 0, 0]);
+      addSphere(eye, 0.018, WHITE, [-0.016, 0.02, 0.05], [1, 1, 0.5]);
       headGroup.add(eye);
       eyeGroups.push(eye);
 
       const closed = new THREE.Mesh(
-        new THREE.TorusGeometry(0.065, 0.016, 8, 16, Math.PI),
+        new THREE.TorusGeometry(0.055, 0.014, 8, 16, Math.PI),
         material(NOSE)
       );
-      closed.position.set(side * 0.22, 0.1, 0.5);
+      closed.position.set(side * 0.21, 0.1, 0.5);
       closed.rotation.z = Math.PI;
       closed.visible = false;
       headGroup.add(closed);
@@ -672,22 +729,37 @@ import * as THREE from "./vendor/three.module.js";
     rightEar = floppyEar;
 
     // 脖子一圈蓬松的毛
-    for (let i = 0; i < 12; i += 1) {
-      const angle = (i / 12) * Math.PI * 2;
+    for (let i = 0; i < 16; i += 1) {
+      const angle = (i / 16) * Math.PI * 2;
       const tuft = new THREE.Mesh(
-        new THREE.ConeGeometry(0.09, 0.26, 6),
+        new THREE.ConeGeometry(0.1, 0.34, 6),
         material(i % 3 === 0 ? BROWN : WHITE)
       );
       tuft.position.set(
-        0.28 + Math.cos(angle) * 0.44,
-        0.46 + Math.sin(angle) * 0.12,
-        0.32 + Math.sin(angle) * 0.24
+        0.28 + Math.cos(angle) * 0.46,
+        0.46 + Math.sin(angle) * 0.14,
+        0.32 + Math.sin(angle) * 0.26
       );
       tuft.rotation.z = -angle;
       tuft.rotation.x = 0.3;
       tuft.castShadow = true;
       dogGroup.add(tuft);
     }
+
+    // 脸颊两侧的毛
+    [-1, 1].forEach((side) => {
+      for (let i = 0; i < 3; i += 1) {
+        const tuft = new THREE.Mesh(
+          new THREE.ConeGeometry(0.045, 0.12, 5),
+          material(WHITE)
+        );
+        tuft.position.set(side * 0.44, -0.06 + i * 0.08, 0.3);
+        tuft.rotation.z = side * 1.0;
+        tuft.rotation.x = 0.45;
+        tuft.castShadow = true;
+        headGroup.add(tuft);
+      }
+    });
 
     // 两条前腿伸在前面
     function buildFrontLeg(x) {
@@ -787,6 +859,8 @@ import * as THREE from "./vendor/three.module.js";
       addSphere(cookie, 0.014, COCOA, [x, y, 0.025]);
     });
     cookie.visible = false;
+
+    headGroup.scale.set(0.92, 0.92, 0.95);
 
     return dogGroup;
   }
@@ -891,6 +965,20 @@ import * as THREE from "./vendor/three.module.js";
     });
 
     addSphere(toyGroup, 0.06, BLUE, [0, 0.02, -0.15], [0.7, 0.7, 1.2]);
+
+    fetchBall = new THREE.Group();
+    fetchBall.visible = false;
+    world.add(fetchBall);
+    addSphere(fetchBall, 0.14, 0xd9e36b, [0, 0, 0]);
+    const seamA = new THREE.Mesh(
+      new THREE.TorusGeometry(0.14, 0.012, 6, 20, Math.PI),
+      material(0xfffdf7)
+    );
+    seamA.rotation.y = Math.PI / 2;
+    fetchBall.add(seamA);
+    const seamB = seamA.clone();
+    seamB.rotation.x = Math.PI / 2;
+    fetchBall.add(seamB);
   }
 
 
@@ -934,6 +1022,7 @@ import * as THREE from "./vendor/three.module.js";
     const sleeping = room.classList.contains("is-sleeping");
     const low = room.classList.contains("is-low");
     const happy = petting || sleeping;
+    const fetching = Boolean(fetchState);
 
     dogGroup.position.y = Math.sin(t * 2.1) * 0.007;
     const idleTurn = Math.sin(t * 0.35) * 0.03;
@@ -1074,12 +1163,94 @@ import * as THREE from "./vendor/three.module.js";
     if (eating) bowlGroup.position.y = 0.14 + Math.sin(t * 10) * 0.006;
 
     toyGroup.visible = true;
-    if (playing) {
+    if (playing && !fetching) {
       toyGroup.rotation.z = Math.sin(t * 14) * 0.28;
       toyGroup.position.y = 0.16 + Math.abs(Math.sin(t * 11)) * 0.1;
     } else {
       toyGroup.rotation.z *= 0.9;
       toyGroup.position.y += (0.16 - toyGroup.position.y) * 0.1;
+    }
+
+    if (fetchState) {
+      const elapsed = (performance.now() - fetchState.startTime) / 1000 / SLOW_FETCH;
+      const start = fetchState.start;
+      const target = fetchState.target;
+      const unit = (value) => Math.max(0, Math.min(1, value));
+      fetchBall.visible = true;
+
+      if (elapsed < 1.2) {
+        const p = unit((elapsed - 0.15) / 1.05);
+        fetchBall.position.set(
+          start.x + (target.x - start.x) * p,
+          start.y + Math.sin(p * Math.PI) * 1.1,
+          start.z + (target.z - start.z) * p
+        );
+        fetchBall.rotation.x += 0.25;
+        dogGroup.rotation.y += (0.45 - dogGroup.rotation.y) * 0.1;
+        dogGroup.position.x += (0 - dogGroup.position.x) * 0.1;
+        dogGroup.position.z += (0 - dogGroup.position.z) * 0.1;
+        headGroup.position.y += (0.78 - headGroup.position.y) * 0.12;
+        headGroup.rotation.x += (-0.1 - headGroup.rotation.x) * 0.12;
+      } else if (elapsed < 3.2) {
+        const p = unit((elapsed - 1.2) / 2.0);
+        dogGroup.position.x = (target.x - 0.55) * p;
+        dogGroup.position.z = (target.z + 0.45) * p;
+        dogGroup.position.y = 0.4 + Math.abs(Math.sin(t * 18)) * 0.04;
+        dogGroup.rotation.y += (1.25 - dogGroup.rotation.y) * 0.12;
+        fetchBall.position.set(target.x, 0.14, target.z);
+        leftArm.rotation.x = 1.0 + Math.sin(t * 18) * 0.55;
+        rightArm.rotation.x = 1.0 + Math.sin(t * 18 + Math.PI) * 0.55;
+        leftLeg.rotation.x = 1.0 + Math.sin(t * 18 + Math.PI) * 0.45;
+        rightLeg.rotation.x = 1.0 + Math.sin(t * 18) * 0.45;
+        headGroup.position.y += (0.8 - headGroup.position.y) * 0.15;
+        headGroup.rotation.x += (-0.1 - headGroup.rotation.x) * 0.15;
+      } else if (elapsed < 3.8) {
+        dogGroup.position.x = target.x - 0.55;
+        dogGroup.position.z = target.z + 0.45;
+        dogGroup.position.y = 0.4;
+        headGroup.position.y += (0.4 - headGroup.position.y) * 0.25;
+        headGroup.rotation.x += (0.4 - headGroup.rotation.x) * 0.25;
+        if (fetchBall.parent !== headGroup) {
+          headGroup.add(fetchBall);
+          fetchBall.position.set(0, -0.3, 0.72);
+          fetchBall.scale.setScalar(0.75);
+        }
+        fetchBall.visible = true;
+      } else if (elapsed < 5.6) {
+        const p = unit((elapsed - 3.8) / 1.8);
+        dogGroup.position.x = (target.x - 0.55) * (1 - p);
+        dogGroup.position.z = (target.z + 0.45) * (1 - p);
+        dogGroup.position.y = 0.4 + Math.abs(Math.sin(t * 18)) * 0.04;
+        dogGroup.rotation.y += (-1.25 - dogGroup.rotation.y) * 0.12;
+        leftArm.rotation.x = 1.0 + Math.sin(t * 18) * 0.55;
+        rightArm.rotation.x = 1.0 + Math.sin(t * 18 + Math.PI) * 0.55;
+        leftLeg.rotation.x = 1.0 + Math.sin(t * 18 + Math.PI) * 0.45;
+        rightLeg.rotation.x = 1.0 + Math.sin(t * 18) * 0.45;
+        headGroup.position.y += (0.7 - headGroup.position.y) * 0.15;
+      } else if (elapsed < 6.4) {
+        dogGroup.position.x += (0 - dogGroup.position.x) * 0.25;
+        dogGroup.position.z += (0 - dogGroup.position.z) * 0.25;
+        dogGroup.position.y += (0 - dogGroup.position.y) * 0.2;
+        dogGroup.rotation.y += (0 - dogGroup.rotation.y) * 0.15;
+        headGroup.position.y += (0.55 - headGroup.position.y) * 0.15;
+        if (fetchBall.parent !== world) {
+          world.add(fetchBall);
+          fetchBall.position.set(0.7, 0.14, 1.15);
+          fetchBall.scale.setScalar(1);
+        }
+        fetchBall.visible = true;
+      } else {
+        if (fetchBall.parent !== world) {
+          world.add(fetchBall);
+          fetchBall.position.set(0.7, 0.14, 1.15);
+          fetchBall.scale.setScalar(1);
+        }
+        fetchBall.visible = true;
+        fetchState = null;
+        dogGroup.position.set(0, 0, 0);
+        dogGroup.rotation.y = 0;
+        setSpeech("捡回来啦！再来一次？", 3200);
+      }
     }
 
     if (petting) dogGroup.rotation.z = Math.sin(t * 8) * 0.012;
@@ -1094,6 +1265,35 @@ import * as THREE from "./vendor/three.module.js";
     renderer.render(world, camera);
   }
 
+
+  function createFurBump() {
+    const canvas = document.createElement("canvas");
+    canvas.width = 128;
+    canvas.height = 128;
+    const ctx = canvas.getContext("2d");
+    const image = ctx.createImageData(128, 128);
+    for (let i = 0; i < image.data.length; i += 4) {
+      const value = 110 + Math.random() * 80;
+      image.data[i] = value;
+      image.data[i + 1] = value;
+      image.data[i + 2] = value;
+      image.data[i + 3] = 255;
+    }
+    ctx.putImageData(image, 0, 0);
+    for (let i = 0; i < 320; i += 1) {
+      ctx.strokeStyle = `rgba(255,255,255,${0.04 + Math.random() * 0.1})`;
+      ctx.beginPath();
+      const x = Math.random() * 128;
+      const y = Math.random() * 128;
+      ctx.moveTo(x, y);
+      ctx.lineTo(x + 2, y + 6 + Math.random() * 12);
+      ctx.stroke();
+    }
+    furBump = new THREE.CanvasTexture(canvas);
+    furBump.wrapS = THREE.RepeatWrapping;
+    furBump.wrapT = THREE.RepeatWrapping;
+    furBump.repeat.set(3, 3);
+  }
 
   function initThree() {
     try {
@@ -1127,10 +1327,14 @@ import * as THREE from "./vendor/three.module.js";
       const fill = new THREE.DirectionalLight(0xdfe8ff, 0.7);
       fill.position.set(-5, 3, 4);
       world.add(fill);
+      const rim = new THREE.DirectionalLight(0xffdcc2, 1.15);
+      rim.position.set(-3, 4, -5);
+      world.add(rim);
 
       dogGroup = new THREE.Group();
       dogGroup.position.set(0, 0, 0);
       world.add(dogGroup);
+      createFurBump();
       buildDog();
       buildCushion();
       buildProps();
