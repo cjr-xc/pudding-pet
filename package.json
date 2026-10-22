@@ -1,0 +1,12 @@
+{
+  "name": "pudding-pet",
+  "version": "1.0.0",
+  "private": true,
+  "description": "一只可以摸、可以喂、可以拖拽转圈的 3D 桌面小宠物",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

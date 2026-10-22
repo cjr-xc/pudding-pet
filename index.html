@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>布丁的小窗台</title>
+  <meta name="description" content="一只叫布丁的 3D 小狗，住在窗台边等你回来。" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body class="time-day">
+  <div class="paper-grain" aria-hidden="true"></div>
+
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-paw" aria-hidden="true">
+          <svg viewBox="0 0 32 32">
+            <ellipse cx="16" cy="21" rx="9" ry="7" fill="#F2A9A0" stroke="#5B463C" stroke-width="2" />
+            <ellipse cx="7" cy="13" rx="3.4" ry="4.4" fill="#F2A9A0" stroke="#5B463C" stroke-width="2" />
+            <ellipse cx="14" cy="8" rx="3.4" ry="4.4" fill="#F2A9A0" stroke="#5B463C" stroke-width="2" />
+            <ellipse cx="23" cy="9" rx="3.4" ry="4.4" fill="#F2A9A0" stroke="#5B463C" stroke-width="2" />
+            <ellipse cx="29" cy="15" rx="3.2" ry="4.2" fill="#F2A9A0" stroke="#5B463C" stroke-width="2" />
+          </svg>
+        </span>
+        <div>
+          <h1><span id="petName" class="pet-name" contenteditable="false" spellcheck="false" tabindex="0" title="点击修改名字">布丁</span><span class="name-pencil" aria-hidden="true">✎</span>的小窗台</h1>
+          <p class="brand-sub">Pudding's little window</p>
+        </div>
+      </div>
+
+      <div class="top-actions">
+        <span id="dateChip" class="date-chip">10 月 22 日 · 周四</span>
+        <button id="soundBtn" class="icon-btn" type="button" aria-label="关闭声音" aria-pressed="true">
+          <span class="sound-on">♪</span>
+        </button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="scene-card">
+        <div class="scene" id="scene">
+          <div class="window">
+            <div class="sky">
+              <div class="sun" aria-hidden="true"></div>
+              <svg class="moon" viewBox="0 0 60 60" aria-hidden="true">
+                <path d="M42 10 A24 24 0 1 0 52 42 A19 19 0 0 1 42 10 Z" fill="#FFF1BF" stroke="#5B463C" stroke-width="2.5" />
+              </svg>
+              <div class="cloud cloud-1" aria-hidden="true"></div>
+              <div class="cloud cloud-2" aria-hidden="true"></div>
+              <div class="stars" aria-hidden="true">
+                <i></i><i></i><i></i><i></i><i></i><i></i>
+              </div>
+            </div>
+            <div class="window-frame" aria-hidden="true"></div>
+            <div class="sill" aria-hidden="true">
+              <span class="sill-bottle"></span>
+              <span class="sill-plant"></span>
+            </div>
+          </div>
+
+          <div class="garland" aria-hidden="true">
+            <span>♡</span><span>♡</span><span>♡</span><span>♡</span><span>♡</span>
+          </div>
+
+          <div class="wall-frame" aria-hidden="true">♡</div>
+
+          <svg class="plant" viewBox="0 0 110 150" aria-hidden="true">
+            <ellipse cx="55" cy="142" rx="34" ry="6" fill="#5B463C" opacity=".1" />
+            <path d="M55 108 C20 100 12 66 30 48 C44 34 56 62 55 108 Z" fill="#B9D8C2" stroke="#5B463C" stroke-width="3" />
+            <path d="M55 108 C90 100 98 66 80 48 C66 34 54 62 55 108 Z" fill="#CFE6D6" stroke="#5B463C" stroke-width="3" />
+            <path d="M55 110 C48 80 46 54 55 30 C64 54 62 80 55 110 Z" fill="#9FC9AE" stroke="#5B463C" stroke-width="3" />
+            <path d="M37 108 L73 108 L67 140 L43 140 Z" fill="#F2A9A0" stroke="#5B463C" stroke-width="3" />
+            <path d="M37 108 L73 108" stroke="#5B463C" stroke-width="3" stroke-linecap="round" />
+          </svg>
+
+          <div class="rug" aria-hidden="true"></div>
+
+          <div class="speech-bubble" id="speech" aria-live="polite">你回来啦，我等你好久。</div>
+
+          <div class="pet-stage" id="petStage">
+            <canvas id="dogCanvas" aria-label="一只可以互动的 3D 小狗"></canvas>
+            <div id="webglFallback" class="webgl-fallback hidden">这只小狗需要 WebGL 才能立体起来，换 Chrome 或 Edge 试试。</div>
+          </div>
+
+          <div class="zzz" id="zzz" aria-hidden="true">Z z z</div>
+          <div class="particles" id="particles" aria-hidden="true"></div>
+          <div class="wilt-overlay" aria-hidden="true"></div>
+        </div>
+
+        <div class="scene-caption">
+          <span id="moodLabel">元气满满</span>
+          <span id="awayNote">今天也在一起。</span>
+        </div>
+        <p class="drag-tip">拖动<span id="dragTipName">布丁</span>可以转一圈，点它一下会摸摸头。</p>
+      </section>
+
+      <aside class="panel">
+        <section class="status-card">
+          <div class="status-head">
+            <h2>布丁的状态</h2>
+            <span id="statusHint">软乎乎的</span>
+          </div>
+
+          <div class="jars">
+            <div class="jar-group">
+              <div class="jar" aria-hidden="true">
+                <span class="jar-lid"></span>
+                <span class="jar-body">
+                  <span class="jar-fill fullness" id="fill-fullness"></span>
+                  <span class="jar-shine"></span>
+                </span>
+              </div>
+              <div class="jar-label">饱腹</div>
+              <div class="jar-value"><span id="val-fullness">80</span><small>%</small></div>
+            </div>
+
+            <div class="jar-group">
+              <div class="jar" aria-hidden="true">
+                <span class="jar-lid"></span>
+                <span class="jar-body">
+                  <span class="jar-fill mood" id="fill-mood"></span>
+                  <span class="jar-shine"></span>
+                </span>
+              </div>
+              <div class="jar-label">心情</div>
+              <div class="jar-value"><span id="val-mood">85</span><small>%</small></div>
+            </div>
+
+            <div class="jar-group">
+              <div class="jar" aria-hidden="true">
+                <span class="jar-lid"></span>
+                <span class="jar-body">
+                  <span class="jar-fill energy" id="fill-energy"></span>
+                  <span class="jar-shine"></span>
+                </span>
+              </div>
+              <div class="jar-label">活力</div>
+              <div class="jar-value"><span id="val-energy">90</span><small>%</small></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="actions-card">
+          <h2>陪陪布丁</h2>
+          <div class="actions-grid">
+            <button class="action-btn feed" type="button" data-action="feed">
+              <span class="action-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="9" fill="#F2C48D" stroke="#5B463C" stroke-width="1.8" />
+                  <circle cx="9" cy="9" r="1.3" fill="#5B463C" />
+                  <circle cx="15" cy="8" r="1.1" fill="#5B463C" />
+                  <circle cx="14" cy="14" r="1.4" fill="#5B463C" />
+                  <circle cx="8" cy="14" r="1.1" fill="#5B463C" />
+                </svg>
+              </span>
+              <span class="action-name">投喂</span>
+              <span class="action-sub">小饼干 +30 饱腹</span>
+            </button>
+
+            <button class="action-btn pet" type="button" data-action="pet">
+              <span class="action-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  <path d="M12 20 C4 14 2 9 5 6 C8 3 11 6 12 8 C13 6 16 3 19 6 C22 9 20 14 12 20 Z" fill="#F2A9A0" stroke="#5B463C" stroke-width="1.8" />
+                </svg>
+              </span>
+              <span class="action-name">摸摸头</span>
+              <span class="action-sub">呼噜呼噜 +22 心情</span>
+            </button>
+
+            <button class="action-btn play" type="button" data-action="play">
+              <span class="action-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="9" fill="#F7D98B" stroke="#5B463C" stroke-width="1.8" />
+                  <path d="M3 10 Q12 16 21 10 M7 4 Q10 12 7 20 M17 4 Q14 12 17 20" fill="none" stroke="#FFFDF7" stroke-width="1.8" />
+                </svg>
+              </span>
+              <span class="action-name">一起玩</span>
+              <span class="action-sub">扔小球 +18 心情</span>
+            </button>
+
+            <button class="action-btn sleep" type="button" data-action="sleep">
+              <span class="action-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  <path d="M15 3 A9 9 0 1 0 21 15 A7 7 0 0 1 15 3 Z" fill="#D9CDEB" stroke="#5B463C" stroke-width="1.8" />
+                </svg>
+              </span>
+              <span class="action-name">睡一会儿</span>
+              <span class="action-sub">恢复 +35 活力</span>
+            </button>
+          </div>
+        </section>
+
+        <section class="note-card">
+          <span class="tape" aria-hidden="true"></span>
+          <h2>今日份小事</h2>
+          <p id="dailyNote">今天还什么都没做，先摸摸头吧。</p>
+          <p class="note-sign">—— 布丁留</p>
+        </section>
+
+        <button id="resetBtn" class="reset-btn" type="button">重新养一只</button>
+      </aside>
+    </main>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
