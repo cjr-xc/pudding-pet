@@ -4,16 +4,17 @@
 
 在线演示：https://cjr-xc.github.io/pudding-pet/
 
-小狗叫「布丁」，是一只棕色＋白色的长毛狗：白鼻梁、棕色眉斑、一只立耳一只折耳，趴在木地板上，旁边放着一个蓝色小玩具。它会随着时间慢慢变饿、变累、变想你；你回来投喂、摸头、陪它玩，它就会重新精神起来。名字可以直接点标题改。
+小狗叫「布丁」，是一只棕色＋白色的哈士奇/阿拉斯加风格 3D 狗：白脸、棕背、立耳，趴在木地板上，旁边放着一个蓝色小玩具。**第一次打开它是站着的；你摸它、喂它或陪它玩之后，它的待机状态会变成趴下休息**，刷新也会保持。名字可以直接点标题改。
 
 ## 功能
 
-- **3D 小狗**：用 Three.js 的球体、圆锥、胶囊、圆环、管状体现场搭出来的低多边形长毛狗，不依赖外部模型文件，离线也能加载。
+- **带骨骼动画的 3D 狗**：接入 Quaternius 的 CC0 Husky GLB 模型，自带 Idle、Walk、Gallop、Eating、HitReact、Death、Jump 等 12+ 组骨骼动画，不依赖联网。
+- **站姿 → 趴姿**：首次访问站着；任意互动后进入“喜欢趴着”的待机状态，用 Death 动画的结束姿态当趴姿，刷新后保持。
 - **自定义名字**：点标题里的名字即可编辑，最多 8 个字，自动保存到浏览器本地。
-- **四种互动**：投喂、摸摸头、一起玩、睡一会儿；摸头会抬起前爪挥手，一起玩会抛出一颗网球让小狗跑去叼回来，睡觉会把头趴到前爪上。
-- **完整捡球时间线**：抛球 → 小狗站起来追球 → 低头叼起 → 跑回来 → 把球放下，约 6 秒，不是只晃一下玩具。
+- **四种互动**：投喂、摸摸头、一起玩、睡一会儿；摸头会触发 HitReact 再趴下，投喂会站起来吃，玩球会跑出去捡。
+- **完整捡球时间线**：抛球 → 小狗站起来 Gallop 追球 → 低头叼起 → Walk 跑回来 → 放下再趴下，约 6 秒。
 - **直接摸狗**：点击 3D 小狗会触发摸头；按住左右拖动可以让它转一圈；点旁边的蓝色玩具也会触发一起玩。
-- **状态会衰减**：饱腹、心情、活力三个值会随离线时间下降；心情太低时小狗会耷拉耳朵、掉眼泪，互动后会重新振作。
+- **状态会衰减**：饱腹、心情、活力三个值会随离线时间下降；心情太低时会切到低头/趴下的姿态，互动后恢复。
 - **会记仇也会原谅**：离开太久再回来，它会说“我在窗边等了你 …”；摸一下或喂一次就能恢复。
 - **昼夜变化**：根据系统时间切换白天、黄昏、夜晚的窗户景色，白色窗帘和木地板保持室内感。
 - **本地存储**：所有状态存在 localStorage，不需要登录，也不会上传。
@@ -46,42 +47,48 @@ pudding-pet/
 └── README.md
 ```
 
-## 3D 小狗是怎么搭的
+## 3D 狗是怎么做的
 
-没有用现成的 glTF 模型，而是照着参考照片，用 Three.js 的基础几何体组合：
+用的是现成的骨骼动画模型，不是现场用球体拼的：
 
-- 身体：白色底毛 + 棕色背毛，用两个压扁的 `SphereGeometry` 叠出“长毛狗”的色块。
-- 头：白色脸、棕色头套、白色鼻梁、拉长的口鼻；棕色眉斑用压扁的球体单独做。
-- 耳朵：一只用 `ConeGeometry` 做立耳，一只用压扁的 `SphereGeometry` 做折耳，里面各加一层浅色内耳。
-- 脖子：12 个圆锥形毛簇围成一圈，做出照片里蓬松的围脖。
-- 前腿：`CapsuleGeometry` 沿 Z 轴伸展，末端是带三个脚趾的爪子；后腿用大块棕色球体加白色脚掌。
-- 毛发：用 CanvasTexture 生成细密噪点和毛丝，作为 `bumpMap` 贴在狗身上；身体边缘、脖子和脸颊再叠加几十个圆锥形毛簇，避免光滑塑料感。
-- 尾巴：`CatmullRomCurve3` + `TubeGeometry` 做一条卷在身后的尾巴，再叠白色毛球。
-- 蓝色玩具：球体 + 两片鱼鳍 + 两个黑色小眼睛，放在右前爪旁边。
-- 地板：用 `CanvasTexture` 画木纹，贴到 `PlaneGeometry` 上；后面加一个白色软垫。
-- 窗帘：CSS 白色帘布叠在窗户两侧。
+- **模型**：Quaternius《Ultimate Animated Animal Pack》里的 `Husky.glb`，CC0，带骨骼和 12+ 组动画。
+- **加载**：`GLTFLoader` 读取 `assets/husky.glb`；`Box3` 计算包围盒，自动缩放到约 1.55 高，并让脚落在地板上。
+- **配色**：模型本身是灰度材质，加载后按材质亮度重新映射为棕色、白色和深色鼻子/眼睛，做成照片里的棕白配色。
+- **动画**：`AnimationMixer` 管理 Idle、Death、Gallop、Walk、Eating、Idle_HitReact_Left、Idle_2_HeadLow 等剪辑；切换时用 `crossFadeFrom` 淡入淡出。
+- **站姿/趴姿**：状态里保存 `prefersLying`。首次进入用 `Idle` 站着；任意互动后切到 `Death` 的结束姿态趴下，刷新时直接把 Death 定位到最后一帧。
+- **捡球时间线**：抛球 → Gallop 追球 → Idle_2_HeadLow 低头叼起 → Walk 跑回 → Death 趴下；球在叼住阶段按狗的朝向和位置贴在嘴边。
+- **后备方案**：如果 GLB 加载失败，页面会保留代码里用基础几何体搭的小狗，交互和状态机仍然可用。
 
-动画循环里根据场景状态（`is-wilted`、`is-petting`、`is-eating`、`is-playing`、`is-sleeping`、`is-low`）实时调整头部抬起/趴下、耳朵角度、眼睛开合、前爪抬起、尾巴摆动、嘴巴开合、饭盆和蓝色玩具的动作。
+## 素材授权
 
-“一起玩”不是简单循环动画，而是一条 6 秒左右的时间线：网球沿抛物线飞出 → 小狗站起来、四条腿交替跑向落点 → 低头把球叼在嘴里 → 转身跑回原位 → 把球放到地上。球在叼住阶段会挂到头部节点上，跟着头一起移动。
-
-交互用 `Raycaster` 判断是否点中了小狗或蓝色玩具；拖动时改变 `dogGroup.rotation.y`，松手时如果位移很小就当作点击。
+- `assets/husky.glb`：Quaternius, *Ultimate Animated Animal Pack*, **CC0 1.0**，可商用、无需署名。来源：https://quaternius.com/packs/ultimateanimatedanimals.html
+- Three.js / GLTFLoader：MIT License。
 
 ## 想自己改
 
-在 `app.js` 顶部找到颜色常量：
+### 换配色
+
+模型是灰度材质，在 `loadHusky()` 里按材质亮度重新映射：
 
 ```js
 const BROWN = 0x6f4a38;
 const WHITE = 0xf8f2e8;
-const BLUE = 0x7eb6d9;
-const PINK = 0xf2a9a0;
-const MINT = 0xb9d8c2;
+const NOSE = 0x3e2c24;
 ```
 
-改这些值就能换小狗、玩具和项圈的配色。想调整毛色分布，改 `buildDog()` 里身体和头部的 `addSphere` 的位置与缩放。
+改这三个常量就能换狗的颜色。模型高度在 `const scale = 1.55 / (size.y || 1);`。
 
-状态衰减在 `applyOfflineDecay()`：
+### 改站姿 / 趴姿
+
+- 想让它一直站着：把 `freshState()` 里的 `prefersLying` 默认改成 `false`，并删掉 `performAction()` 里的 `state.prefersLying = true`。
+- 想让它首次就趴着：把 `freshState()` 的 `prefersLying` 改成 `true`。
+- 趴姿用的是 Death 动画的结束帧；如果想换别的趴姿，改 `playGltf("Death", ...)`。
+
+### 改动画
+
+`playGltf(name, options)` 负责切换剪辑；可用剪辑名有 Idle、Idle_2、Idle_2_HeadLow、Walk、Gallop、Eating、Idle_HitReact_Left、Jump_ToIdle、Gallop_Jump、Death 等。捡球时间线在 `animate()` 的 `fetchState` 块里。
+
+### 状态衰减
 
 ```js
 state.fullness = clamp(state.fullness - hours * 1.0);
@@ -94,18 +101,17 @@ state.energy = clamp(state.energy - hours * 0.5);
 ## 可以写进简历的描述
 
 **布丁的小窗台（3D 互动宠物）｜个人项目｜2026.10**
-技术栈：Three.js · 原生 JavaScript · Node.js · localStorage
+技术栈：Three.js · GLTFLoader · AnimationMixer · 原生 JavaScript · localStorage
 
-- 用 Three.js 基础几何体程序化搭建棕色＋白色长毛狗：白鼻梁、棕色眉斑、一立一折的耳朵、蓬松围脖、可动前腿和爪子，不依赖外部模型文件。
-- 设计“饱腹 / 心情 / 活力”状态机与离线衰减：离开越久小狗越蔫，投喂、摸头、陪玩、睡觉会恢复不同数值。
-- 用 `Raycaster` 实现点击小狗摸头、点击蓝色玩具陪玩、拖拽旋转视角；根据状态实时驱动抬头、抬爪、耳朵下垂、眼睛开合、尾巴摆动等动画。
-- 实现“抛球 → 追球 → 叼起 → 跑回 → 放下”的 3D 捡球时间线，球在叼住阶段挂到头部节点上跟随移动。
-- 用 `CanvasTexture` 生成木地板纹理，配合白色软垫和窗帘，还原照片里的室内场景；支持点击标题改名、昼夜天空切换、本地存储和音效开关。
+- 接入 Quaternius CC0 Husky 骨骼动画 glTF 模型，用 GLTFLoader + AnimationMixer 管理 Idle / Death / Gallop / Walk / Eating / HitReact 等剪辑，Box3 自动缩放并落地。
+- 设计“首次站立、互动后趴下待机”的持久化状态（`prefersLying`），以及“抛球 → 追球 → 叼起 → 跑回 → 放下”的约 6 秒捡球时间线。
+- 用 `Raycaster` 实现点击小狗摸头、点击蓝色玩具陪玩、拖拽旋转视角；根据状态与交互切换骨骼动画并做淡入淡出。
+- 将灰度模型材质按亮度重映射为棕白配色，用 CanvasTexture 还原木地板、白窗帘和软垫；支持点击标题改名、昼夜切换、本地存储和音效开关。
 
 ## 面试怎么讲
 
-1. **为什么做这个**：我想照着家里狗的照片做一个能摸、能喂、能转圈的 3D 版本，而不是用现成的模型。
-2. **模型怎么来**：没有外部美术资源，全部用 Three.js 的球体、圆锥、胶囊、管状体组合；棕色背毛、白鼻梁、眉斑、一立一折的耳朵都是代码里的色块和几何体。
-3. **状态怎么驱动动画**：状态机把“饿 / 蔫 / 开心 / 睡觉 / 吃饭 / 玩球”映射成场景 CSS 类，Three.js 的动画循环读取这些类，平滑插值头部、耳朵、前爪、眼睛、尾巴的角度。
+1. **为什么做这个**：我想照着家里狗的照片做一个能摸、能喂、能转圈的 3D 版本；先用基础几何体搭过一版，觉得不够真实，后来换成带骨骼的 CC0 Husky 模型。
+2. **模型怎么来**：来自 Quaternius 的 Ultimate Animated Animal Pack，CC0 可商用；用 GLTFLoader 载入，Box3 算包围盒后自动缩放到 1.55 高并让脚落地，再把灰度材质按亮度重映射成棕白配色。
+3. **动画怎么驱动**：用 AnimationMixer 管理剪辑，Idle 是默认站姿，Death 的结束帧作为趴下待机，Gallop/Walk 用于追球和跑回，Eating/HitReact 用于投喂和摸头，切换时用 crossFadeFrom 淡入淡出。
 4. **交互怎么做**：按钮负责数值变化，`Raycaster` 负责点选小狗和蓝色玩具，`pointerdown/move/up` 负责拖拽旋转；位移小于 6px 视为点击而不是拖拽。
-5. **取舍**：没有做骨骼动画和真实毛发，因为目标是“可爱、能跑、能改”，低多边形 + 柔和材质更适合这个场景，也更容易在普通笔记本上稳定 60fps。
+5. **取舍**：模型是低多边形风格，不是照片级毛发，但有真实骨骼和 12+ 组动作；如果追求更写实，可以换成带 PBR 贴图的 Malamute glTF，现有的状态机和捡球时间线可以直接复用。

@@ -1,4 +1,5 @@
 import * as THREE from "./vendor/three.module.js";
+import { GLTFLoader } from "./vendor/loaders/GLTFLoader.js";
 
 (() => {
   "use strict";
@@ -38,6 +39,12 @@ import * as THREE from "./vendor/three.module.js";
   let fetchBall = null;
   let fetchState = null;
   let furBump = null;
+  let gltfModel = null;
+  let gltfMixer = null;
+  let gltfActions = {};
+  let gltfCurrent = null;
+  let usingGLTF = false;
+  let lastFrameAt = performance.now();
   let tailGroup = null;
   let tear = null;
   let smile = null;
@@ -99,6 +106,7 @@ import * as THREE from "./vendor/three.module.js";
       countsDate: localDateKey(),
       sound: true,
       createdAt: now,
+      prefersLying: false,
     };
   }
 
@@ -221,6 +229,27 @@ import * as THREE from "./vendor/three.module.js";
     if (wasWilted && mood.className !== "is-wilted") {
       room.classList.add("is-reviving");
       setTimeout(() => room.classList.remove("is-reviving"), 760);
+    }
+
+    if (
+      usingGLTF &&
+      !fetchState &&
+      !room.classList.contains("is-petting") &&
+      !room.classList.contains("is-eating") &&
+      !room.classList.contains("is-sleeping") &&
+      !room.classList.contains("is-playing")
+    ) {
+      if (state.prefersLying) {
+        if (mood.key === "wilted" || mood.key === "low") {
+          playGltf("Idle_2_HeadLow", { loop: true, fade: 0.4 });
+        } else {
+          playGltf("Death", { once: true, fade: 0.3 });
+        }
+      } else if (mood.key === "wilted" || mood.key === "low") {
+        playGltf("Idle_2_HeadLow", { loop: true, fade: 0.3 });
+      } else {
+        playGltf("Idle", { loop: true, fade: 0.3 });
+      }
     }
   }
 
@@ -468,6 +497,12 @@ import * as THREE from "./vendor/three.module.js";
         setActionClass("is-eating", 1800);
         spawnParticles("crumb", 8, 50, 72);
         soundFeed();
+        if (usingGLTF) {
+          playGltf("Eating", { once: true, fade: 0.25 });
+          setTimeout(() => {
+            if (usingGLTF) playGltf("Death", { once: true, fade: 0.4 });
+          }, 2300);
+        }
       }
     } else if (action === "pet") {
       const before = state.mood;
@@ -483,6 +518,12 @@ import * as THREE from "./vendor/three.module.js";
       setActionClass("is-petting", 1600);
       spawnParticles("heart", 9, 50, 38);
       soundPet();
+      if (usingGLTF) {
+        playGltf("Idle_HitReact_Left", { once: true, fade: 0.15 });
+        setTimeout(() => {
+          if (usingGLTF) playGltf("Death", { once: true, fade: 0.3 });
+        }, 900);
+      }
     } else if (action === "play") {
       if (state.energy < 15) {
         setSpeech("有点累啦，先睡一会儿好不好？", 3200);
@@ -496,6 +537,7 @@ import * as THREE from "./vendor/three.module.js";
         setActionClass("is-playing", 6400 * SLOW_FETCH);
         spawnParticles("sparkle", 7, 50, 44);
         soundPlay();
+        if (usingGLTF) playGltf("Idle", { loop: true, fade: 0.2 });
       }
     } else if (action === "sleep") {
       if (state.energy >= 85) {
@@ -507,11 +549,13 @@ import * as THREE from "./vendor/three.module.js";
         setSpeech("呼…睡一小会儿。", 2600);
         setActionClass("is-sleeping", 3000);
         soundSleep();
+        if (usingGLTF) playGltf("Death", { once: true, fade: 0.3 });
       }
     }
 
     state.lastInteraction = now;
     state.lastSeen = now;
+    state.prefersLying = true;
     if (wasWilted) state.mood = clamp(state.mood + 10);
     save();
     render();
@@ -541,6 +585,7 @@ import * as THREE from "./vendor/three.module.js";
     save();
     applyName(name, false);
     render();
+    if (usingGLTF) playGltf("Idle", { loop: true, fade: 0.3 });
     setSpeech(`你好呀，我是${name}。以后请多关照。`, 5200);
     toast("重新开始啦");
   }
@@ -990,8 +1035,8 @@ import * as THREE from "./vendor/three.module.js";
     renderer.setSize(width, height, false);
     camera.aspect = width / height;
     const narrow = width / height < 0.95;
-    camera.position.set(0, narrow ? 2.3 : 2.05, narrow ? 7.4 : 6.1);
-    camera.lookAt(0, 0.55, 0.15);
+    camera.position.set(0, narrow ? 2.2 : 1.95, narrow ? 7.0 : 5.8);
+    camera.lookAt(0, 0.8, 0.1);
     camera.updateProjectionMatrix();
   }
 
@@ -1014,7 +1059,10 @@ import * as THREE from "./vendor/three.module.js";
   function animate() {
     if (!renderer) return;
     requestAnimationFrame(animate);
-    const t = (performance.now() - startedAt) / 1000;
+    const frameNow = performance.now();
+    const t = (frameNow - startedAt) / 1000;
+    const delta = Math.min(0.05, (frameNow - lastFrameAt) / 1000);
+    lastFrameAt = frameNow;
     const wilted = room.classList.contains("is-wilted");
     const petting = room.classList.contains("is-petting");
     const eating = room.classList.contains("is-eating");
@@ -1178,6 +1226,26 @@ import * as THREE from "./vendor/three.module.js";
       const unit = (value) => Math.max(0, Math.min(1, value));
       fetchBall.visible = true;
 
+      if (usingGLTF) {
+        if (elapsed >= 1.2 && elapsed < 3.2 && fetchState.phase !== "run") {
+          fetchState.phase = "run";
+          playGltf("Gallop", { loop: true, fade: 0.2 });
+        } else if (elapsed >= 3.2 && elapsed < 3.8 && fetchState.phase !== "pick") {
+          fetchState.phase = "pick";
+          playGltf("Idle_2_HeadLow", { once: true, fade: 0.2 });
+        } else if (elapsed >= 3.8 && elapsed < 5.6 && fetchState.phase !== "return") {
+          fetchState.phase = "return";
+          playGltf("Walk", { loop: true, fade: 0.2 });
+        } else if (elapsed >= 5.6 && fetchState.phase !== "end") {
+          fetchState.phase = "end";
+          playGltf(state.prefersLying ? "Death" : "Idle", {
+            once: state.prefersLying,
+            loop: !state.prefersLying,
+            fade: 0.3,
+          });
+        }
+      }
+
       if (elapsed < 1.2) {
         const p = unit((elapsed - 0.15) / 1.05);
         fetchBall.position.set(
@@ -1195,7 +1263,7 @@ import * as THREE from "./vendor/three.module.js";
         const p = unit((elapsed - 1.2) / 2.0);
         dogGroup.position.x = (target.x - 0.55) * p;
         dogGroup.position.z = (target.z + 0.45) * p;
-        dogGroup.position.y = 0.4 + Math.abs(Math.sin(t * 18)) * 0.04;
+        dogGroup.position.y = usingGLTF ? 0 : 0.4 + Math.abs(Math.sin(t * 18)) * 0.04;
         dogGroup.rotation.y += (1.25 - dogGroup.rotation.y) * 0.12;
         fetchBall.position.set(target.x, 0.14, target.z);
         leftArm.rotation.x = 1.0 + Math.sin(t * 18) * 0.55;
@@ -1207,10 +1275,18 @@ import * as THREE from "./vendor/three.module.js";
       } else if (elapsed < 3.8) {
         dogGroup.position.x = target.x - 0.55;
         dogGroup.position.z = target.z + 0.45;
-        dogGroup.position.y = 0.4;
+        dogGroup.position.y = usingGLTF ? 0 : 0.4;
         headGroup.position.y += (0.4 - headGroup.position.y) * 0.25;
         headGroup.rotation.x += (0.4 - headGroup.rotation.x) * 0.25;
-        if (fetchBall.parent !== headGroup) {
+        if (usingGLTF) {
+          if (fetchBall.parent !== world) world.add(fetchBall);
+          const mouthOffset = new THREE.Vector3(0, 0.55, 0.72).applyAxisAngle(
+            new THREE.Vector3(0, 1, 0),
+            dogGroup.rotation.y
+          );
+          fetchBall.position.copy(dogGroup.position).add(mouthOffset);
+          fetchBall.scale.setScalar(0.8);
+        } else if (fetchBall.parent !== headGroup) {
           headGroup.add(fetchBall);
           fetchBall.position.set(0, -0.3, 0.72);
           fetchBall.scale.setScalar(0.75);
@@ -1220,13 +1296,23 @@ import * as THREE from "./vendor/three.module.js";
         const p = unit((elapsed - 3.8) / 1.8);
         dogGroup.position.x = (target.x - 0.55) * (1 - p);
         dogGroup.position.z = (target.z + 0.45) * (1 - p);
-        dogGroup.position.y = 0.4 + Math.abs(Math.sin(t * 18)) * 0.04;
+        dogGroup.position.y = usingGLTF ? 0 : 0.4 + Math.abs(Math.sin(t * 18)) * 0.04;
         dogGroup.rotation.y += (-1.25 - dogGroup.rotation.y) * 0.12;
         leftArm.rotation.x = 1.0 + Math.sin(t * 18) * 0.55;
         rightArm.rotation.x = 1.0 + Math.sin(t * 18 + Math.PI) * 0.55;
         leftLeg.rotation.x = 1.0 + Math.sin(t * 18 + Math.PI) * 0.45;
         rightLeg.rotation.x = 1.0 + Math.sin(t * 18) * 0.45;
         headGroup.position.y += (0.7 - headGroup.position.y) * 0.15;
+        if (usingGLTF) {
+          if (fetchBall.parent !== world) world.add(fetchBall);
+          const mouthOffset = new THREE.Vector3(0, 0.55, 0.72).applyAxisAngle(
+            new THREE.Vector3(0, 1, 0),
+            dogGroup.rotation.y
+          );
+          fetchBall.position.copy(dogGroup.position).add(mouthOffset);
+          fetchBall.scale.setScalar(0.8);
+          fetchBall.visible = true;
+        }
       } else if (elapsed < 6.4) {
         dogGroup.position.x += (0 - dogGroup.position.x) * 0.25;
         dogGroup.position.z += (0 - dogGroup.position.z) * 0.25;
@@ -1262,6 +1348,8 @@ import * as THREE from "./vendor/three.module.js";
     dogGroup.scale.y += (targetScale - dogGroup.scale.y) * 0.2;
     dogGroup.scale.z += (targetScale - dogGroup.scale.z) * 0.2;
 
+    if (gltfMixer) gltfMixer.update(delta);
+
     renderer.render(world, camera);
   }
 
@@ -1295,6 +1383,102 @@ import * as THREE from "./vendor/three.module.js";
     furBump.repeat.set(3, 3);
   }
 
+  function playGltf(name, options = {}) {
+    if (!gltfMixer) return;
+    const next = gltfActions[name] || gltfActions.Idle;
+    if (!next) return;
+    if (gltfCurrent === next && !options.restart) return;
+    const previous = gltfCurrent;
+    next.reset();
+    next.enabled = true;
+    next.setEffectiveTimeScale(1);
+    next.setEffectiveWeight(1);
+    next.setLoop(options.once ? THREE.LoopOnce : THREE.LoopRepeat, options.once ? 1 : Infinity);
+    next.clampWhenFinished = Boolean(options.once);
+    next.play();
+    if (options.holdAtEnd) {
+      next.time = next.getClip().duration;
+      next.paused = true;
+      gltfMixer.update(0);
+      gltfCurrent = next;
+      return;
+    }
+    if (previous && previous !== next) {
+      next.crossFadeFrom(previous, options.fade ?? 0.25, false);
+    }
+    gltfCurrent = next;
+  }
+
+  function loadHusky() {
+    const loader = new GLTFLoader();
+    loader.load(
+      "assets/husky.glb",
+      (gltf) => {
+        gltfModel = gltf.scene;
+        dogGroup.children.forEach((child) => {
+          child.visible = false;
+        });
+
+        const box = new THREE.Box3().setFromObject(gltfModel);
+        const size = box.getSize(new THREE.Vector3());
+        const scale = 1.55 / (size.y || 1);
+        gltfModel.scale.setScalar(scale);
+        box.setFromObject(gltfModel);
+        const center = box.getCenter(new THREE.Vector3());
+        gltfModel.position.x -= center.x;
+        gltfModel.position.z -= center.z;
+        gltfModel.position.y -= box.min.y;
+        gltfModel.rotation.y = 0;
+
+        gltfModel.traverse((child) => {
+          if (!child.isMesh) return;
+          child.castShadow = true;
+          child.receiveShadow = true;
+          const materials = Array.isArray(child.material) ? child.material : [child.material];
+          materials.forEach((mat) => {
+            if (!mat || !mat.color) return;
+            const c = mat.color;
+            const lum = c.r * 0.299 + c.g * 0.587 + c.b * 0.114;
+            if (lum > 0.15) mat.color.setHex(WHITE);
+            else if (lum > 0.04) mat.color.setHex(BROWN);
+            else mat.color.setHex(NOSE);
+            mat.roughness = 0.9;
+            mat.metalness = 0;
+            if (furBump) {
+              mat.bumpMap = furBump;
+              mat.bumpScale = 0.006;
+            }
+            mat.needsUpdate = true;
+          });
+        });
+
+        dogGroup.add(gltfModel);
+        gltfMixer = new THREE.AnimationMixer(gltfModel);
+        gltf.animations.forEach((clip) => {
+          const name = clip.name.replace(/^AnimalArmature\|/, "");
+          if (!gltfActions[name]) gltfActions[name] = gltfMixer.clipAction(clip);
+        });
+        usingGLTF = true;
+        const moodKey = getMood().key;
+        const initial = state.prefersLying
+          ? "Death"
+          : moodKey === "wilted" || moodKey === "low"
+            ? "Idle_2_HeadLow"
+            : "Idle";
+        playGltf(
+          initial,
+          initial === "Death"
+            ? { once: true, holdAtEnd: true, fade: 0 }
+            : { loop: true, fade: 0.2 }
+        );
+      },
+      undefined,
+      (error) => {
+        console.error("Husky GLB failed to load", error);
+      }
+    );
+  }
+
   function initThree() {
     try {
       renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
@@ -1308,8 +1492,8 @@ import * as THREE from "./vendor/three.module.js";
 
       world = new THREE.Scene();
       camera = new THREE.PerspectiveCamera(32, 1, 0.1, 100);
-      camera.position.set(0, 2.05, 6.1);
-      camera.lookAt(0, 0.55, 0.15);
+      camera.position.set(0, 1.95, 5.8);
+      camera.lookAt(0, 0.8, 0.1);
 
       world.add(new THREE.HemisphereLight(0xfff6e8, 0xbfa58f, 1.55));
       const key = new THREE.DirectionalLight(0xfff2dd, 2.4);
@@ -1338,6 +1522,7 @@ import * as THREE from "./vendor/three.module.js";
       buildDog();
       buildCushion();
       buildProps();
+      loadHusky();
 
       resizeRenderer();
       if (window.ResizeObserver) new ResizeObserver(resizeRenderer).observe(el("petStage"));
