@@ -28,6 +28,12 @@ import * as THREE from "./vendor/three.module.js";
   let headGroup = null;
   let leftEar = null;
   let rightEar = null;
+  let leftArm = null;
+  let rightArm = null;
+  let leftLeg = null;
+  let rightLeg = null;
+  let cookie = null;
+  let toyGroup = null;
   let tailGroup = null;
   let tear = null;
   let smile = null;
@@ -55,6 +61,11 @@ import * as THREE from "./vendor/three.module.js";
   const PINK = 0xf2a9a0;
   const MINT = 0xb9d8c2;
   const BUTTER = 0xf7d98b;
+  const BROWN = 0x6f4a38;
+  const BROWN_DARK = 0x54382b;
+  const WHITE = 0xf8f2e8;
+  const NOSE = 0x3e2c24;
+  const BLUE = 0x7eb6d9;
 
   function clamp(value, min = 0, max = 100) {
     return Math.max(min, Math.min(max, value));
@@ -544,211 +555,344 @@ import * as THREE from "./vendor/three.module.js";
   }
 
   function buildDog() {
-    const body = addSphere(dogGroup, 0.8, CREAM, [0, 0.8, 0], [1.05, 1.0, 0.9]);
-    addSphere(dogGroup, 0.52, LIGHT, [0, 0.7, 0.6], [1.0, 1.15, 0.3]);
+    // 身体：白色底毛 + 棕色背毛
+    addSphere(dogGroup, 0.72, WHITE, [-0.15, 0.46, -0.2], [1.3, 0.72, 1.0]);
+    addSphere(dogGroup, 0.66, BROWN, [-0.15, 0.56, -0.24], [1.22, 0.55, 0.92]);
+    addSphere(dogGroup, 0.45, WHITE, [0.12, 0.32, 0.38], [0.95, 0.7, 0.62]);
 
+    // 头
     headGroup = new THREE.Group();
-    headGroup.position.set(0, 1.55, 0.08);
+    headGroup.position.set(0.38, 0.52, 0.58);
     dogGroup.add(headGroup);
-    addSphere(headGroup, 0.75, CREAM, [0, 0, 0], [1.05, 1.0, 0.95]);
+    addSphere(headGroup, 0.52, WHITE, [0, 0, 0], [1.0, 0.95, 0.95]);
 
-    addSphere(headGroup, 0.28, LIGHT, [0, -0.17, 0.56], [1.3, 0.9, 0.85]);
-    addSphere(headGroup, 0.1, DARK, [0, -0.09, 0.82], [1.2, 0.85, 0.8]);
+    // 棕色头套 + 白色鼻梁
+    addSphere(headGroup, 0.5, BROWN, [0, 0.14, -0.12], [0.96, 0.78, 0.92]);
+    addSphere(headGroup, 0.18, WHITE, [0, 0.14, 0.44], [0.75, 0.95, 0.55]);
 
-    [-1, 1].forEach((side, index) => {
+    // 口鼻
+    addSphere(headGroup, 0.24, WHITE, [0, -0.15, 0.48], [1.15, 0.8, 1.0]);
+    addSphere(headGroup, 0.09, NOSE, [0, -0.1, 0.7], [1.15, 0.8, 0.8]);
+
+    // 棕色眉斑（不是整圈眼罩）
+    [-1, 1].forEach((side) => {
+      addSphere(headGroup, 0.17, BROWN, [side * 0.24, 0.17, 0.34], [0.7, 0.45, 0.3]);
+    });
+
+    // 眼睛 + 闭眼弧线
+    [-1, 1].forEach((side) => {
       const eye = new THREE.Group();
-      eye.position.set(side * 0.27, 0.13, 0.66);
-      addSphere(eye, 0.1, DARK, [0, 0, 0]);
-      addSphere(eye, 0.032, 0xffffff, [-0.03, 0.035, 0.075], [1, 1, 0.5]);
+      eye.position.set(side * 0.22, 0.1, 0.47);
+      addSphere(eye, 0.065, NOSE, [0, 0, 0]);
+      addSphere(eye, 0.022, WHITE, [-0.018, 0.022, 0.055], [1, 1, 0.5]);
       headGroup.add(eye);
       eyeGroups.push(eye);
 
-      const happy = new THREE.Mesh(
-        new THREE.TorusGeometry(0.09, 0.022, 8, 16, Math.PI),
-        material(DARK)
+      const closed = new THREE.Mesh(
+        new THREE.TorusGeometry(0.065, 0.016, 8, 16, Math.PI),
+        material(NOSE)
       );
-      happy.position.set(side * 0.27, 0.13, 0.72);
-      happy.rotation.z = Math.PI;
-      happy.visible = false;
-      headGroup.add(happy);
-      happyEyes.push(happy);
+      closed.position.set(side * 0.22, 0.1, 0.5);
+      closed.rotation.z = Math.PI;
+      closed.visible = false;
+      headGroup.add(closed);
+      happyEyes.push(closed);
     });
 
+    // 腮红
     [-1, 1].forEach((side) => {
       addSphere(
         headGroup,
-        0.14,
+        0.11,
         PINK,
-        [side * 0.48, -0.12, 0.55],
-        [1.2, 0.8, 0.25],
-        { transparent: true, opacity: 0.72 }
+        [side * 0.4, -0.14, 0.42],
+        [1.2, 0.75, 0.3],
+        { transparent: true, opacity: 0.55 }
       );
     });
 
+    // 嘴
     smile = new THREE.Mesh(
-      new THREE.TorusGeometry(0.11, 0.022, 8, 16, Math.PI),
-      material(DARK)
+      new THREE.TorusGeometry(0.09, 0.018, 8, 16, Math.PI),
+      material(NOSE)
     );
-    smile.position.set(0, -0.27, 0.84);
+    smile.position.set(0, -0.25, 0.72);
     smile.rotation.z = Math.PI;
     headGroup.add(smile);
 
     frown = new THREE.Mesh(
-      new THREE.TorusGeometry(0.11, 0.022, 8, 16, Math.PI),
-      material(DARK)
+      new THREE.TorusGeometry(0.09, 0.018, 8, 16, Math.PI),
+      material(NOSE)
     );
-    frown.position.set(0, -0.27, 0.84);
+    frown.position.set(0, -0.25, 0.72);
     frown.visible = false;
     headGroup.add(frown);
 
-    mouthOpen = addSphere(headGroup, 0.09, DARK, [0, -0.27, 0.82], [1.2, 1, 0.55]);
+    mouthOpen = addSphere(headGroup, 0.075, NOSE, [0, -0.25, 0.7], [1.2, 1, 0.5]);
     mouthOpen.visible = false;
-    tongue = addSphere(headGroup, 0.05, PINK, [0, -0.3, 0.86], [1.3, 0.7, 0.6]);
+    tongue = addSphere(headGroup, 0.045, PINK, [0, -0.28, 0.74], [1.3, 0.7, 0.6]);
     tongue.visible = false;
 
     tear = addSphere(
       headGroup,
-      0.035,
+      0.032,
       0x9fcbe0,
-      [-0.24, -0.02, 0.72],
+      [-0.2, 0, 0.56],
       [1, 1.3, 1],
-      { transparent: true, opacity: 0.92 }
+      { transparent: true, opacity: 0.9 }
     );
     tear.visible = false;
 
-    function buildEar(side) {
-      const ear = new THREE.Group();
-      ear.position.set(side * 0.66, 0.28, 0.24);
-      addSphere(ear, 0.3, EAR, [0, -0.32, 0], [0.6, 1.15, 0.42]);
-      addSphere(ear, 0.2, INNER_EAR, [0, -0.34, 0.1], [0.5, 0.9, 0.22], {
-        transparent: true,
-        opacity: 0.85,
-      });
-      headGroup.add(ear);
-      return ear;
+    // 一只立耳，一只折耳
+    const uprightEar = new THREE.Group();
+    uprightEar.position.set(-0.2, 0.46, 0.02);
+    const outerEar = new THREE.Mesh(
+      new THREE.ConeGeometry(0.2, 0.44, 8),
+      material(BROWN)
+    );
+    outerEar.position.set(0, 0.22, 0);
+    outerEar.castShadow = true;
+    uprightEar.add(outerEar);
+    const innerEar = new THREE.Mesh(
+      new THREE.ConeGeometry(0.11, 0.28, 8),
+      material(CREAM)
+    );
+    innerEar.position.set(0, 0.2, 0.09);
+    uprightEar.add(innerEar);
+    uprightEar.rotation.z = 0.18;
+    headGroup.add(uprightEar);
+    leftEar = uprightEar;
+
+    const floppyEar = new THREE.Group();
+    floppyEar.position.set(0.48, 0.26, 0.12);
+    addSphere(floppyEar, 0.24, BROWN, [0, -0.12, 0], [0.55, 0.95, 0.42]);
+    addSphere(floppyEar, 0.14, CREAM, [0, -0.12, 0.12], [0.5, 0.75, 0.22]);
+    floppyEar.rotation.z = -0.5;
+    headGroup.add(floppyEar);
+    rightEar = floppyEar;
+
+    // 脖子一圈蓬松的毛
+    for (let i = 0; i < 12; i += 1) {
+      const angle = (i / 12) * Math.PI * 2;
+      const tuft = new THREE.Mesh(
+        new THREE.ConeGeometry(0.09, 0.26, 6),
+        material(i % 3 === 0 ? BROWN : WHITE)
+      );
+      tuft.position.set(
+        0.28 + Math.cos(angle) * 0.44,
+        0.46 + Math.sin(angle) * 0.12,
+        0.32 + Math.sin(angle) * 0.24
+      );
+      tuft.rotation.z = -angle;
+      tuft.rotation.x = 0.3;
+      tuft.castShadow = true;
+      dogGroup.add(tuft);
     }
 
-    leftEar = buildEar(-1);
-    rightEar = buildEar(1);
-    leftEar.rotation.z = -0.12;
-    rightEar.rotation.z = 0.12;
+    // 两条前腿伸在前面
+    function buildFrontLeg(x) {
+      const leg = new THREE.Group();
+      leg.position.set(x, 0.26, 0.55);
+      const limb = new THREE.Mesh(
+        new THREE.CapsuleGeometry(0.1, 0.6, 8, 16),
+        material(WHITE)
+      );
+      limb.rotation.x = Math.PI / 2;
+      limb.position.set(0, -0.02, 0.34);
+      limb.castShadow = true;
+      leg.add(limb);
+      addSphere(leg, 0.17, WHITE, [0, -0.05, 0.72], [1.1, 0.7, 1.2]);
+      [-0.055, 0, 0.055].forEach((dx) => {
+        addSphere(leg, 0.036, CREAM, [dx, -0.07, 0.86], [1, 0.7, 0.8]);
+      });
+      dogGroup.add(leg);
+      return leg;
+    }
 
-    const bow = new THREE.Group();
-    bow.position.set(0.54, 0.46, 0.44);
-    headGroup.add(bow);
-    const bowLeft = addSphere(bow, 0.12, PINK, [-0.1, 0, 0], [1.2, 0.7, 0.5]);
-    bowLeft.rotation.z = 0.5;
-    const bowRight = addSphere(bow, 0.12, PINK, [0.1, 0, 0], [1.2, 0.7, 0.5]);
-    bowRight.rotation.z = -0.5;
-    addSphere(bow, 0.065, BUTTER, [0, 0, 0.02]);
+    leftArm = buildFrontLeg(-0.2);
+    rightArm = buildFrontLeg(0.72);
 
-    const collar = new THREE.Mesh(
-      new THREE.TorusGeometry(0.5, 0.06, 10, 32),
-      material(MINT)
-    );
-    collar.position.set(0, 1.12, 0.05);
-    collar.rotation.x = Math.PI / 2;
-    collar.castShadow = true;
-    dogGroup.add(collar);
-    addSphere(dogGroup, 0.08, BUTTER, [0, 1.02, 0.52], [1, 1.2, 0.7]);
+    // 左侧后腿收在身下
+    leftLeg = new THREE.Group();
+    leftLeg.position.set(-0.68, 0.3, 0.0);
+    addSphere(leftLeg, 0.36, BROWN, [0, 0, 0], [1, 0.9, 1]);
+    addSphere(leftLeg, 0.18, WHITE, [0.08, -0.16, 0.38], [1.1, 0.7, 1.2]);
+    dogGroup.add(leftLeg);
 
-    [-1, 1].forEach((side) => {
-      addSphere(dogGroup, 0.22, CREAM, [side * 0.32, 0.2, 0.6], [1.1, 0.7, 1.3]);
-    });
+    rightLeg = new THREE.Group();
+    rightLeg.position.set(0.45, 0.25, -0.48);
+    addSphere(rightLeg, 0.3, BROWN, [0, 0, 0], [1, 0.9, 1]);
+    addSphere(rightLeg, 0.16, WHITE, [0, -0.12, 0.28], [1.1, 0.7, 1.2]);
+    dogGroup.add(rightLeg);
 
+    // 蓬松的尾巴卷在身后
     tailGroup = new THREE.Group();
-    tailGroup.position.set(0.52, 0.55, -0.45);
+    tailGroup.position.set(-0.78, 0.35, -0.5);
     dogGroup.add(tailGroup);
     const curve = new THREE.CatmullRomCurve3([
       new THREE.Vector3(0, 0, 0),
-      new THREE.Vector3(0.25, 0.02, -0.12),
-      new THREE.Vector3(0.4, 0.25, -0.22),
-      new THREE.Vector3(0.3, 0.5, -0.08),
+      new THREE.Vector3(-0.3, 0.18, -0.15),
+      new THREE.Vector3(-0.15, 0.45, 0.18),
+      new THREE.Vector3(0.15, 0.38, 0.38),
     ]);
     const tail = new THREE.Mesh(
-      new THREE.TubeGeometry(curve, 20, 0.08, 8, false),
-      material(CREAM)
+      new THREE.TubeGeometry(curve, 24, 0.14, 8, false),
+      material(BROWN)
     );
     tail.castShadow = true;
     tailGroup.add(tail);
-    addSphere(tailGroup, 0.09, LIGHT, [0.3, 0.5, -0.08]);
+    for (let i = 0; i < 7; i += 1) {
+      const angle = (i / 7) * Math.PI * 2;
+      addSphere(
+        tailGroup,
+        0.11,
+        WHITE,
+        [
+          0.05 + Math.cos(angle) * 0.12,
+          0.42 + Math.sin(angle) * 0.1,
+          0.42 + Math.sin(angle) * 0.08,
+        ],
+        [1, 0.8, 1]
+      );
+    }
 
-    [
-      [-0.08, 0.79, 0.04],
-      [0.02, 0.83, 0.02],
-      [0.12, 0.79, 0.06],
-    ].forEach(([x, y, z], index) => {
-      addSphere(headGroup, 0.07 - index * 0.008, CREAM, [x, y, z]);
-    });
-
-    return body;
-  }
-
-  function buildCushion() {
-    const cushion = new THREE.Mesh(
-      new THREE.CylinderGeometry(1.2, 1.35, 0.26, 48),
+    // 项圈
+    const collar = new THREE.Mesh(
+      new THREE.TorusGeometry(0.42, 0.055, 10, 32),
       material(MINT)
     );
-    cushion.position.y = 0.13;
-    cushion.receiveShadow = true;
-    world.add(cushion);
+    collar.position.set(0.18, 0.42, 0.38);
+    collar.rotation.x = Math.PI / 2;
+    collar.rotation.z = 0.3;
+    collar.castShadow = true;
+    dogGroup.add(collar);
+    addSphere(dogGroup, 0.065, BUTTER, [0.3, 0.34, 0.62], [1, 1.2, 0.7]);
 
-    const rim = new THREE.Mesh(
-      new THREE.TorusGeometry(1.2, 0.06, 12, 48),
-      material(0xa7c9b3)
+    // 爪边的小饼干
+    cookie = new THREE.Group();
+    cookie.position.set(0, -0.02, 0.86);
+    rightArm.add(cookie);
+    const cookieDisc = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.09, 0.09, 0.035, 20),
+      material(0xe7b779)
     );
-    rim.rotation.x = Math.PI / 2;
-    rim.position.y = 0.26;
-    rim.castShadow = true;
-    rim.receiveShadow = true;
-    world.add(rim);
+    cookieDisc.rotation.x = Math.PI / 2;
+    cookieDisc.castShadow = true;
+    cookie.add(cookieDisc);
+    [
+      [-0.035, 0.02],
+      [0.03, 0.03],
+      [0.02, -0.03],
+    ].forEach(([x, y]) => {
+      addSphere(cookie, 0.014, COCOA, [x, y, 0.025]);
+    });
+    cookie.visible = false;
 
-    const shadowPlane = new THREE.Mesh(
-      new THREE.CircleGeometry(1.9, 32),
-      new THREE.ShadowMaterial({ opacity: 0.18 })
+    return dogGroup;
+  }
+
+
+  function buildCushion() {
+    const canvas = document.createElement("canvas");
+    canvas.width = 512;
+    canvas.height = 512;
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#c89a6c";
+    ctx.fillRect(0, 0, 512, 512);
+
+    for (let y = 0; y < 512; y += 64) {
+      ctx.fillStyle = (y / 64) % 2 === 0 ? "#c99c6e" : "#bd8d61";
+      ctx.fillRect(0, y, 512, 64);
+      ctx.strokeStyle = "rgba(80,50,32,.22)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(512, y);
+      ctx.stroke();
+
+      for (let i = 0; i < 5; i += 1) {
+        ctx.strokeStyle = "rgba(80,50,32,.07)";
+        ctx.beginPath();
+        const gy = y + 10 + Math.random() * 44;
+        ctx.moveTo(0, gy);
+        ctx.bezierCurveTo(140, gy - 5, 340, gy + 5, 512, gy);
+        ctx.stroke();
+      }
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(3, 2);
+
+    const floor = new THREE.Mesh(
+      new THREE.PlaneGeometry(14, 9),
+      new THREE.MeshStandardMaterial({ map: texture, roughness: 0.92, metalness: 0 })
     );
-    shadowPlane.rotation.x = -Math.PI / 2;
-    shadowPlane.position.y = 0.295;
-    shadowPlane.receiveShadow = true;
-    world.add(shadowPlane);
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.set(0, 0, 0.2);
+    floor.receiveShadow = true;
+    world.add(floor);
+
+    const pillow = addSphere(world, 0.55, 0xfffaf2, [-0.95, 0.2, -0.9], [1.7, 0.38, 1.05]);
+    pillow.castShadow = true;
+
+    const seam = new THREE.Mesh(
+      new THREE.TorusGeometry(0.7, 0.018, 8, 40),
+      material(0xe8dccb)
+    );
+    seam.rotation.x = Math.PI / 2;
+    seam.position.set(-0.95, 0.38, -0.9);
+    seam.scale.z = 0.62;
+    world.add(seam);
   }
 
   function buildProps() {
     bowlGroup = new THREE.Group();
-    bowlGroup.position.set(0, 0.38, 1.05);
+    bowlGroup.position.set(0.45, 0.14, 1.62);
     bowlGroup.visible = false;
     world.add(bowlGroup);
+
     const bowlBody = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.34, 0.24, 0.22, 24),
-      material(PINK)
+      new THREE.CylinderGeometry(0.28, 0.2, 0.18, 24),
+      material(0xd9a7a0)
     );
     bowlBody.castShadow = true;
     bowlGroup.add(bowlBody);
+
     const bowlRim = new THREE.Mesh(
-      new THREE.TorusGeometry(0.34, 0.035, 8, 24),
-      material(0xe88fa0)
+      new THREE.TorusGeometry(0.28, 0.028, 8, 24),
+      material(0xc98d86)
     );
     bowlRim.rotation.x = Math.PI / 2;
-    bowlRim.position.y = 0.11;
+    bowlRim.position.y = 0.09;
     bowlGroup.add(bowlRim);
-    [
-      [-0.12, 0.16, 0.05],
-      [0.08, 0.17, -0.03],
-      [0.18, 0.16, 0.08],
-    ].forEach(([x, y, z]) => addSphere(bowlGroup, 0.055, EAR, [x, y, z]));
 
-    ballGroup = new THREE.Group();
-    ballGroup.position.set(1.2, 0.7, 0.9);
-    ballGroup.visible = false;
-    world.add(ballGroup);
-    addSphere(ballGroup, 0.18, BUTTER, [0, 0, 0]);
-    const band = new THREE.Mesh(
-      new THREE.TorusGeometry(0.18, 0.014, 6, 24, Math.PI),
-      material(0xfffdf7)
-    );
-    band.rotation.y = Math.PI / 2;
-    ballGroup.add(band);
+    [
+      [-0.1, 0.23, 0.02],
+      [0.06, 0.24, -0.02],
+      [0.14, 0.22, 0.06],
+    ].forEach(([x, y, z]) => addSphere(bowlGroup, 0.05, 0xe7b779, [x, y, z]));
+
+    toyGroup = new THREE.Group();
+    toyGroup.position.set(1.05, 0.16, 1.25);
+    world.add(toyGroup);
+    addSphere(toyGroup, 0.16, BLUE, [0, 0, 0], [1.1, 0.9, 1]);
+    addSphere(toyGroup, 0.1, 0xfff6ea, [0, -0.02, 0.12], [1, 0.8, 0.45]);
+
+    [-1, 1].forEach((side) => {
+      const fin = addSphere(toyGroup, 0.08, BLUE, [side * 0.16, 0.08, 0], [0.8, 1.2, 0.6]);
+      fin.rotation.z = side * 0.5;
+    });
+
+    [-1, 1].forEach((side) => {
+      addSphere(toyGroup, 0.018, NOSE, [side * 0.06, 0.06, 0.14]);
+    });
+
+    addSphere(toyGroup, 0.06, BLUE, [0, 0.02, -0.15], [0.7, 0.7, 1.2]);
   }
+
 
   function resizeRenderer() {
     if (!renderer || !camera) return;
@@ -758,17 +902,25 @@ import * as THREE from "./vendor/three.module.js";
     renderer.setSize(width, height, false);
     camera.aspect = width / height;
     const narrow = width / height < 0.95;
-    camera.position.set(0, narrow ? 2.9 : 2.6, narrow ? 8.9 : 7.2);
-    camera.lookAt(0, 1.25, 0);
+    camera.position.set(0, narrow ? 2.3 : 2.05, narrow ? 7.4 : 6.1);
+    camera.lookAt(0, 0.55, 0.15);
     camera.updateProjectionMatrix();
   }
 
-  function hitDog(event) {
+  function hitGroup(event, group) {
     const rect = canvas.getBoundingClientRect();
     pointerNdc.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     pointerNdc.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
     raycaster.setFromCamera(pointerNdc, camera);
-    return raycaster.intersectObjects(dogGroup.children, true).length > 0;
+    return raycaster.intersectObjects(group.children, true).length > 0;
+  }
+
+  function hitDog(event) {
+    return hitGroup(event, dogGroup);
+  }
+
+  function hitToy(event) {
+    return hitGroup(event, toyGroup);
   }
 
   function animate() {
@@ -783,52 +935,95 @@ import * as THREE from "./vendor/three.module.js";
     const low = room.classList.contains("is-low");
     const happy = petting || sleeping;
 
-    const breath = Math.sin(t * 2.2) * 0.02;
-    dogGroup.position.y = 0.3 + (sleeping ? -0.02 : breath * 0.5);
-    const idleTurn = Math.sin(t * 0.45) * 0.04;
+    dogGroup.position.y = Math.sin(t * 2.1) * 0.007;
+    const idleTurn = Math.sin(t * 0.35) * 0.03;
     dogGroup.rotation.y += (targetRotation + idleTurn - dogGroup.rotation.y) * 0.06;
 
-    let headZ = Math.sin(t * 0.8) * 0.015;
-    let headY = 1.55;
+    let headY = 0.52;
+    let headZ = 0.58;
+    let headRotZ = Math.sin(t * 0.7) * 0.012;
+    let headRotX = 0.08;
+
     if (petting) {
-      headZ = Math.sin(t * 8) * 0.06;
-      headY = 1.52;
+      headY = 0.72;
+      headZ = 0.68;
+      headRotZ = 0.08;
+      headRotX = -0.04;
+    } else if (playing) {
+      headY = 0.66;
+      headZ = 0.66;
+      headRotZ = 0.05;
+      headRotX = 0;
+    } else if (eating) {
+      headY = 0.66;
+      headZ = 0.72;
+      headRotZ = -0.04;
+      headRotX = 0.2;
+    } else if (sleeping) {
+      headY = 0.44;
+      headZ = 0.62;
+      headRotZ = -0.06;
+      headRotX = 0.2;
+    } else if (wilted) {
+      headY = 0.42;
+      headZ = 0.58;
+      headRotZ = -0.04;
+      headRotX = 0.22;
+    } else if (low) {
+      headY = 0.49;
+      headZ = 0.58;
+      headRotZ = -0.02;
+      headRotX = 0.12;
     }
-    if (sleeping) {
-      headZ = -0.12;
-      headY = 1.47;
-    }
-    if (wilted && !happy) {
-      headZ = -0.08;
-      headY = 1.47;
-    }
-    if (low && !happy && !wilted) {
-      headZ = -0.04;
-      headY = 1.51;
-    }
-    headGroup.rotation.z += (headZ - headGroup.rotation.z) * 0.12;
+
     headGroup.position.y += (headY - headGroup.position.y) * 0.12;
+    headGroup.position.z += (headZ - headGroup.position.z) * 0.12;
+    headGroup.rotation.z += (headRotZ - headGroup.rotation.z) * 0.12;
+    headGroup.rotation.x += (headRotX - headGroup.rotation.x) * 0.12;
 
-    const droop = wilted && !happy ? 0.85 : low && !happy ? 0.3 : petting ? 0.02 : 0.12;
-    const wobble = Math.sin(t * 1.5) * 0.03;
-    leftEar.rotation.z += (-droop - wobble - leftEar.rotation.z) * 0.12;
-    rightEar.rotation.z += (droop + wobble - rightEar.rotation.z) * 0.12;
+    let earUpZ = 0.18;
+    let earFlopZ = -0.5;
+    let earUpX = 0;
+    let earFlopX = 0;
 
-    const wagSpeed = playing || petting ? 14 : wilted ? 1.5 : 3.2;
-    const wagAmp = playing || petting ? 0.55 : wilted ? 0.06 : 0.28;
+    if (wilted && !happy) {
+      earUpZ = 0.9;
+      earFlopZ = -0.95;
+      earUpX = 0.2;
+      earFlopX = 0.2;
+    } else if (petting) {
+      earUpZ = 0.06;
+      earFlopZ = -0.3;
+    } else if (sleeping) {
+      earUpZ = 0.55;
+      earFlopZ = -0.75;
+    } else if (playing) {
+      earUpZ = 0.05;
+      earFlopZ = -0.35;
+    }
+
+    const twitch = Math.sin(t * 1.7) * 0.03;
+    leftEar.rotation.z += (earUpZ + twitch - leftEar.rotation.z) * 0.12;
+    rightEar.rotation.z += (earFlopZ + twitch - rightEar.rotation.z) * 0.12;
+    leftEar.rotation.x += (earUpX - leftEar.rotation.x) * 0.12;
+    rightEar.rotation.x += (earFlopX - rightEar.rotation.x) * 0.12;
+
+    const wagSpeed = playing || petting ? 13 : wilted ? 1.5 : 3;
+    const wagAmp = playing || petting ? 0.5 : wilted ? 0.05 : 0.22;
     tailGroup.rotation.y = Math.sin(t * wagSpeed) * wagAmp;
-    tailGroup.rotation.x = wilted && !happy ? -0.5 : 0.1;
+    tailGroup.rotation.z = wilted && !happy ? -0.4 : 0.05;
 
     const blink = t % 5.7 > 5.56 ? 0.12 : 1;
     eyeGroups.forEach((eye, index) => {
       let scaleY = blink;
-      if (happy) scaleY = 0.18;
-      if (wilted && !happy) scaleY = 0.32;
-      if (low && !happy && !wilted) scaleY = 0.65;
+      if (happy) scaleY = 0.16;
+      if (wilted && !happy) scaleY = 0.3;
+      if (low && !happy && !wilted) scaleY = 0.62;
       eye.scale.y += (scaleY - eye.scale.y) * 0.32;
       eye.rotation.z += ((wilted && !happy ? (index === 0 ? 0.22 : -0.22) : 0) - eye.rotation.z) * 0.2;
       eye.visible = !happy;
     });
+
     happyEyes.forEach((eye) => {
       eye.visible = happy;
     });
@@ -842,22 +1037,52 @@ import * as THREE from "./vendor/three.module.js";
     tongue.visible = eating;
     if (eating) {
       mouthOpen.scale.y = 1 + Math.sin(t * 16) * 0.08;
-      mouthOpen.scale.x = 1.2 + Math.sin(t * 16) * 0.06;
     }
+
+    let leftLegX = 0;
+    let rightLegX = 0;
+    let rightLegZ = 0;
+
+    if (petting) {
+      rightLegX = -0.75 + Math.sin(t * 10) * 0.15;
+      rightLegZ = 0.15;
+    } else if (playing) {
+      rightLegX = -0.55 + Math.sin(t * 12) * 0.2;
+      rightLegZ = 0.25;
+    } else if (eating) {
+      leftLegX = 0.15;
+      rightLegX = 0.15;
+    } else if (sleeping) {
+      leftLegX = 0.25;
+      rightLegX = 0.25;
+    } else if (wilted) {
+      leftLegX = 0.1;
+      rightLegX = 0.1;
+    }
+
+    leftArm.rotation.x += (leftLegX - leftArm.rotation.x) * 0.12;
+    rightArm.rotation.x += (rightLegX - rightArm.rotation.x) * 0.12;
+    rightArm.rotation.z += (rightLegZ - rightArm.rotation.z) * 0.12;
+    if (!playing && !petting) rightArm.rotation.z *= 0.9;
+
+    leftLeg.rotation.x += ((sleeping ? 0.2 : 0) - leftLeg.rotation.x) * 0.1;
+    rightLeg.rotation.x += ((sleeping ? 0.2 : 0) - rightLeg.rotation.x) * 0.1;
+
+    cookie.visible = eating;
 
     bowlGroup.visible = eating;
-    if (eating) bowlGroup.position.y = 0.38 + Math.sin(t * 10) * 0.01;
+    if (eating) bowlGroup.position.y = 0.14 + Math.sin(t * 10) * 0.006;
 
-    ballGroup.visible = playing;
+    toyGroup.visible = true;
     if (playing) {
-      const p = (t % 1.35) / 1.35;
-      ballGroup.position.x = 1.2 - p * 2.4;
-      ballGroup.position.y = 0.7 + Math.abs(Math.sin(p * Math.PI)) * 0.7;
-      ballGroup.rotation.z = p * Math.PI * 2;
+      toyGroup.rotation.z = Math.sin(t * 14) * 0.28;
+      toyGroup.position.y = 0.16 + Math.abs(Math.sin(t * 11)) * 0.1;
+    } else {
+      toyGroup.rotation.z *= 0.9;
+      toyGroup.position.y += (0.16 - toyGroup.position.y) * 0.1;
     }
 
-    if (playing) dogGroup.position.y += Math.abs(Math.sin(t * 10)) * 0.06;
-    if (petting) dogGroup.rotation.z = Math.sin(t * 8) * 0.018;
+    if (petting) dogGroup.rotation.z = Math.sin(t * 8) * 0.012;
     else dogGroup.rotation.z *= 0.9;
 
     const reviving = room.classList.contains("is-reviving");
@@ -868,6 +1093,7 @@ import * as THREE from "./vendor/three.module.js";
 
     renderer.render(world, camera);
   }
+
 
   function initThree() {
     try {
@@ -882,8 +1108,8 @@ import * as THREE from "./vendor/three.module.js";
 
       world = new THREE.Scene();
       camera = new THREE.PerspectiveCamera(32, 1, 0.1, 100);
-      camera.position.set(0, 2.6, 7.2);
-      camera.lookAt(0, 1.25, 0);
+      camera.position.set(0, 2.05, 6.1);
+      camera.lookAt(0, 0.55, 0.15);
 
       world.add(new THREE.HemisphereLight(0xfff6e8, 0xbfa58f, 1.55));
       const key = new THREE.DirectionalLight(0xfff2dd, 2.4);
@@ -903,7 +1129,7 @@ import * as THREE from "./vendor/three.module.js";
       world.add(fill);
 
       dogGroup = new THREE.Group();
-      dogGroup.position.set(0, 0.3, 0);
+      dogGroup.position.set(0, 0, 0);
       world.add(dogGroup);
       buildDog();
       buildCushion();
@@ -937,7 +1163,7 @@ import * as THREE from "./vendor/three.module.js";
 
     canvas.addEventListener("pointermove", (event) => {
       if (!pointerDown) {
-        canvas.style.cursor = hitDog(event) ? "pointer" : "grab";
+        canvas.style.cursor = hitDog(event) || hitToy(event) ? "pointer" : "grab";
         return;
       }
       const dx = event.clientX - pointerLastX;
@@ -957,7 +1183,10 @@ import * as THREE from "./vendor/three.module.js";
           /* ignore */
         }
       }
-      if (wasClick && hitDog(event)) performAction("pet");
+      if (wasClick) {
+        if (hitToy(event)) performAction("play");
+        else if (hitDog(event)) performAction("pet");
+      }
     });
 
     canvas.addEventListener("pointercancel", () => {
