@@ -4274,10 +4274,10 @@ void main() {
   var barkAudio = null;
   function barkAt() {
     try {
-      if (!barkAudio) { barkAudio = new Audio('assets/bark.wav'); barkAudio.preload = 'auto'; }
+      if (!barkAudio) { barkAudio = new Audio('assets/woo.wav'); barkAudio.preload = 'auto'; }
       var a = barkAudio.cloneNode ? barkAudio.cloneNode() : barkAudio;
-      a.playbackRate = 0.94 + Math.random() * 0.14;
-      a.volume = 0.55;
+      a.playbackRate = 0.96 + Math.random() * 0.09;
+      a.volume = 0.5;
       var pr = a.play();
       if (pr && pr.catch) pr.catch(function () {});
     } catch (e) {}
