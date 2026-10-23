@@ -4246,7 +4246,7 @@ void main() {
     if (!target) { if (!pick()) return; }
     t += 0.016;
     bounce *= 0.92;
-    var breath = Math.sin(t * 1.7) * 0.010 + bounce * 0.035;
+    var breath = Math.sin(t * 1.7) * 0.030 + bounce * 0.070;
     target.scale.set(base.s.x * (1 - breath * 0.5), base.s.y * (1 + breath), base.s.z * (1 - breath * 0.5));
     target.position.y = base.py + Math.abs(Math.sin(t * 1.7)) * 0.0015;
   }
